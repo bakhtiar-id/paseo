@@ -981,6 +981,7 @@ export const fr: TranslationResources = {
         menu: "Actions du projet",
         showDone: "Afficher {{count}} terminés",
         hideDone: "Masquer les terminés",
+        markAllDone: "Tout marquer comme terminé",
         openSettings: "Ouvrir les paramètres du projet",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",

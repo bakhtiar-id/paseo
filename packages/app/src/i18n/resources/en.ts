@@ -961,6 +961,7 @@ export const en = {
         menu: "Project actions",
         showDone: "Show {{count}} done workspaces",
         hideDone: "Hide done workspaces",
+        markAllDone: "Mark all workspaces as done",
         openSettings: "Open project settings",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",

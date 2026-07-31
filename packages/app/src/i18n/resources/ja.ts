@@ -962,6 +962,7 @@ export const ja: TranslationResources = {
         menu: "プロジェクトアクション",
         showDone: "完了 {{count}} 件を表示",
         hideDone: "完了を非表示",
+        markAllDone: "すべて完了にする",
         openSettings: "プロジェクト設定を開く",
         openNewWindow: "新しいウィンドウで開く",
         openNewWindowFailed: "新しいウィンドウを開けませんでした",

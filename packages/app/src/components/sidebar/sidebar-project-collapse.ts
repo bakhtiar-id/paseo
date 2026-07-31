@@ -55,6 +55,27 @@ export function shouldSweepWorkspace(input: {
   return true;
 }
 
+/**
+ * Done keys for every non-archived agent across the given workspaces. The
+ * project menu's "mark all as done" sets these to sweep a whole project
+ * without waiting for DONE_SWEEP_IDLE_MS.
+ */
+export function collectWorkspaceAgentDoneKeys(
+  sessions: Record<string, SessionAgentsRef | undefined>,
+  workspaces: ReadonlyArray<{ serverId: string; workspaceId: string }>,
+): string[] {
+  const keys: string[] = [];
+  for (const workspace of workspaces) {
+    const session = sessions[workspace.serverId];
+    if (!session) continue;
+    for (const agent of session.agents.values()) {
+      if (agent.archivedAt || agent.workspaceId !== workspace.workspaceId) continue;
+      keys.push(`${agent.serverId}:${agent.id}`);
+    }
+  }
+  return keys;
+}
+
 /** Project keys that have at least one live (non-done, non-archived) agent. */
 export function resolveLiveProjectKeys(
   sessions: Record<string, SessionAgentsRef | undefined>,

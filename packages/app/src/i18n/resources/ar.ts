@@ -951,6 +951,7 @@ export const ar: TranslationResources = {
         menu: "إجراءات المشروع",
         showDone: "إظهار {{count}} منتهية",
         hideDone: "إخفاء المنتهية",
+        markAllDone: "تعيين الكل كمنتهية",
         openSettings: "افتح إعدادات المشروع",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",

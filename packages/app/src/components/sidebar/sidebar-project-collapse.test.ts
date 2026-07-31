@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Agent } from "@/stores/session-store";
 import {
+  collectWorkspaceAgentDoneKeys,
   resolveEffectiveCollapsedProjectKeys,
   resolveLiveProjectKeys,
   shouldSweepWorkspace,
@@ -210,5 +211,41 @@ describe("shouldSweepWorkspace", () => {
     expect(
       shouldSweepWorkspace({ hydrated: true, agents, manualDoneKeys: new Set(), nowMs: NOW_MS }),
     ).toBe(true);
+  });
+});
+
+describe("collectWorkspaceAgentDoneKeys", () => {
+  it("collects keys for agents on the given workspaces", () => {
+    const sessions = {
+      srv: {
+        agents: new Map([
+          ["a1", agent({ id: "a1", workspaceId: "ws-1" })],
+          ["a2", agent({ id: "a2", workspaceId: "ws-1" })],
+          ["a3", agent({ id: "a3", workspaceId: "ws-2" })],
+        ]),
+      },
+    } as never;
+
+    expect(
+      collectWorkspaceAgentDoneKeys(sessions, [{ serverId: "srv", workspaceId: "ws-1" }]).sort(),
+    ).toEqual(["srv:a1", "srv:a2"]);
+  });
+
+  it("skips archived agents and missing sessions", () => {
+    const sessions = {
+      srv: {
+        agents: new Map([
+          ["a1", agent({ id: "a1", workspaceId: "ws-1" })],
+          ["a2", agent({ id: "a2", workspaceId: "ws-1", archivedAt: NOW })],
+        ]),
+      },
+    } as never;
+
+    expect(
+      collectWorkspaceAgentDoneKeys(sessions, [
+        { serverId: "srv", workspaceId: "ws-1" },
+        { serverId: "gone", workspaceId: "ws-9" },
+      ]),
+    ).toEqual(["srv:a1"]);
   });
 });

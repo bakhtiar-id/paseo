@@ -973,6 +973,7 @@ export const ptBR: TranslationResources = {
         menu: "Ações do projeto",
         showDone: "Mostrar {{count}} concluídos",
         hideDone: "Ocultar concluídos",
+        markAllDone: "Marcar tudo como concluído",
         openSettings: "Abrir configurações do projeto",
         openNewWindow: "Abrir em nova janela",
         openNewWindowFailed: "Não foi possível abrir uma nova janela",

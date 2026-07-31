@@ -49,6 +49,7 @@ import * as Clipboard from "expo-clipboard";
 import { DiffStat } from "@/components/diff-stat";
 import {
   CircleAlert,
+  CircleCheck,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -125,7 +126,10 @@ import {
 } from "@/components/sidebar/sidebar-workspace-row-content";
 import { SidebarWorkspaceAgentRows } from "@/components/sidebar/sidebar-agent-row";
 import { SidebarDoneWorkspacesToggle } from "@/components/sidebar/sidebar-done-workspaces-toggle";
-import { shouldSweepWorkspace } from "@/components/sidebar/sidebar-project-collapse";
+import {
+  collectWorkspaceAgentDoneKeys,
+  shouldSweepWorkspace,
+} from "@/components/sidebar/sidebar-project-collapse";
 import { useAgentDoneStore } from "@/stores/agent-done-store";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 import { useShallow } from "zustand/shallow";
@@ -175,6 +179,7 @@ const DEFAULT_STATUS_DOT_SIZE = 7;
 const EMPHASIZED_STATUS_DOT_SIZE = 9;
 const DEFAULT_STATUS_DOT_OFFSET = 0;
 const EMPHASIZED_STATUS_DOT_OFFSET = -1;
+const ThemedCircleCheck = withUnistyles(CircleCheck);
 const ThemedExternalLink = withUnistyles(ExternalLink);
 const ThemedEye = withUnistyles(Eye);
 const ThemedEyeOff = withUnistyles(EyeOff);
@@ -313,6 +318,7 @@ interface ProjectHeaderRowProps {
   doneCount?: number;
   doneExpanded?: boolean;
   onToggleDone?: () => void;
+  onMarkAllDone?: () => void;
 }
 
 export interface SidebarProjectStatusRollupItem {
@@ -530,6 +536,7 @@ function ProjectRowTrailingActions({
   doneCount,
   doneExpanded,
   onToggleDone,
+  onMarkAllDone,
 }: {
   project: SidebarProjectEntry;
   displayName: string;
@@ -544,6 +551,7 @@ function ProjectRowTrailingActions({
   doneCount?: number;
   doneExpanded?: boolean;
   onToggleDone?: () => void;
+  onMarkAllDone?: () => void;
 }) {
   // Touch mode (spec §5.2): the + and kebab stay visible instead of hiding
   // behind hover, so the row never reflows its trailing content.
@@ -577,6 +585,7 @@ function ProjectRowTrailingActions({
           doneCount={doneCount}
           doneExpanded={doneExpanded}
           onToggleDone={onToggleDone}
+          onMarkAllDone={onMarkAllDone}
         />
       ) : null}
     </View>
@@ -670,6 +679,9 @@ const STATUS_ROLLUP_VARIANT: Record<
 
 const doneShowLeadingIcon = <ThemedEye size={14} uniProps={foregroundMutedColorMapping} />;
 const doneHideLeadingIcon = <ThemedEyeOff size={14} uniProps={foregroundMutedColorMapping} />;
+const markAllDoneLeadingIcon = (
+  <ThemedCircleCheck size={14} uniProps={foregroundMutedColorMapping} />
+);
 const trash2LeadingIcon = <ThemedTrash2 size={14} uniProps={foregroundMutedColorMapping} />;
 const settingsLeadingIcon = <ThemedSettings size={14} uniProps={foregroundMutedColorMapping} />;
 const openInNewWindowLeadingIcon = (
@@ -694,6 +706,7 @@ function ProjectKebabMenu({
   doneCount = 0,
   doneExpanded = false,
   onToggleDone,
+  onMarkAllDone,
 }: {
   projectViewKey: string;
   settingsTarget: { serverId: string; projectId: string } | null;
@@ -704,6 +717,8 @@ function ProjectKebabMenu({
   doneCount?: number;
   doneExpanded?: boolean;
   onToggleDone?: () => void;
+  /** Sweeps every live workspace into the done group; absent when none remain. */
+  onMarkAllDone?: () => void;
 }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -747,6 +762,15 @@ function ProjectKebabMenu({
             {doneExpanded
               ? t("sidebar.project.actions.hideDone")
               : t("sidebar.project.actions.showDone", { count: doneCount })}
+          </DropdownMenuItem>
+        ) : null}
+        {onMarkAllDone ? (
+          <DropdownMenuItem
+            testID={`sidebar-project-menu-mark-all-done-${projectViewKey}`}
+            leading={markAllDoneLeadingIcon}
+            onSelect={onMarkAllDone}
+          >
+            {t("sidebar.project.actions.markAllDone")}
           </DropdownMenuItem>
         ) : null}
         {canOpenProjectSettings ? (
@@ -1185,6 +1209,7 @@ function ProjectHeaderRow({
   doneCount,
   doneExpanded,
   onToggleDone,
+  onMarkAllDone,
 }: ProjectHeaderRowProps) {
   const [isHovered, setIsHovered] = useState(false);
   const handleBeginWorkspaceSetup = useCallback(() => {
@@ -1267,6 +1292,7 @@ function ProjectHeaderRow({
         doneCount={doneCount}
         doneExpanded={doneExpanded}
         onToggleDone={onToggleDone}
+        onMarkAllDone={onMarkAllDone}
       />
       <ProjectRowShortcutBadge
         showShortcutBadge={showShortcutBadge}
@@ -1852,6 +1878,7 @@ function ProjectBlock({
   // the done group once every agent on it is done and quiet for a day, or
   // manually marked done from the agent row menu.
   const manualDoneKeys = useAgentDoneStore((state) => state.manuallyDoneAgentKeys);
+  const setManuallyDone = useAgentDoneStore((state) => state.setManuallyDone);
   const workspaceSweepMap = useSessionStore(
     useShallow((state) => {
       const map = new Map<string, boolean>();
@@ -2149,6 +2176,15 @@ function ProjectBlock({
     })();
   }, [workspaceSweep.done, workspaceEntriesByKey, activeWorkspaceSelection, toast, t]);
 
+  // Manual sweep override: flag every agent on every live workspace as done so
+  // the whole project collapses behind the done toggle now, not after a day.
+  const handleMarkAllDone = useCallback(() => {
+    const sessions = useSessionStore.getState().sessions;
+    for (const key of collectWorkspaceAgentDoneKeys(sessions, workspaceSweep.live)) {
+      setManuallyDone(key, true);
+    }
+  }, [setManuallyDone, workspaceSweep.live]);
+
   let projectChildren = null;
   if (!collapsed) {
     if (project.workspaces.length > 0) {
@@ -2234,6 +2270,7 @@ function ProjectBlock({
         doneCount={workspaceSweep.done.length}
         doneExpanded={doneExpanded}
         onToggleDone={toggleDoneExpanded}
+        onMarkAllDone={workspaceSweep.live.length > 0 ? handleMarkAllDone : undefined}
       />
 
       {projectChildren}

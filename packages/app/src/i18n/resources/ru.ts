@@ -973,6 +973,7 @@ export const ru: TranslationResources = {
         menu: "Действия проекта",
         showDone: "Показать {{count}} завершённых",
         hideDone: "Скрыть завершённые",
+        markAllDone: "Отметить все как завершённые",
         openSettings: "Открыть настройки проекта",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",

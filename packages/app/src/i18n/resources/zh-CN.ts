@@ -942,6 +942,7 @@ export const zhCN: TranslationResources = {
         menu: "Project 操作",
         showDone: "显示 {{count}} 个已完成",
         hideDone: "隐藏已完成",
+        markAllDone: "全部标记为已完成",
         openSettings: "打开 project 设置",
         openNewWindow: "在新窗口中打开",
         openNewWindowFailed: "无法打开新窗口",
