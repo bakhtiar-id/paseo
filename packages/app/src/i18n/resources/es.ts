@@ -895,7 +895,28 @@ export const es: TranslationResources = {
       },
     },
   },
+  statusFooter: {
+    agents: "{{count}} agentes",
+    active: "{{count}} activos",
+    done: "{{count}} terminados",
+    hostsOnline: "{{online}}/{{total}} hosts en línea",
+    context: "Contexto {{percentage}}%",
+    updateAvailable: "Actualización disponible",
+    limitsUnavailable: "Límites no disponibles",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "Preferencias de visualización",
+    displayPreferencesMenu: {
+      groupBy: "Agrupar por",
+      project: "Proyecto",
+      status: "Estado",
+      filter: "Filtrar",
+      allHosts: "Todos los hosts",
+      workspaceTitle: "Título del espacio de trabajo",
+      title: "Título",
+      branchName: "Nombre de la rama",
+    },
     pinned: {
       title: "Anclados",
     },
@@ -926,6 +947,17 @@ export const es: TranslationResources = {
     sections: {
       sessions: "Historial",
       schedules: "Horarios",
+      projects: "Proyectos",
+    },
+    search: {
+      placeholder: "Buscar proyectos, agentes, archivos",
+    },
+    statusBuckets: {
+      needsInput: "Necesita entrada",
+      failed: "Falló",
+      attention: "Listo para revisar",
+      running: "Trabajando",
+      done: "Terminado",
     },
     worktreeSetup: {
       title: "Configurar secuencias de comandos del árbol de trabajo",
@@ -936,6 +968,8 @@ export const es: TranslationResources = {
     project: {
       actions: {
         menu: "Acciones del proyecto",
+        showDone: "Mostrar {{count}} terminados",
+        hideDone: "Ocultar terminados",
         openSettings: "Abrir la configuración del proyecto",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
@@ -958,6 +992,22 @@ export const es: TranslationResources = {
         title: "Aún no hay proyectos",
         description: "Añade un proyecto para empezar",
       },
+    },
+    agents: {
+      menu: "Acciones del agente",
+      archive: "Archivar chat",
+      markDone: "Marcar como terminado",
+      unmarkDone: "Desmarcar como terminado",
+    },
+    workspaces: {
+      showDone: "{{count}} terminados · mostrar",
+      archiveAllDone: "Archivar todos los terminados ({{count}})",
+      doneMenu: "Acciones de terminados",
+      hideDone: "{{count}} terminados · ocultar",
+    },
+    liveNow: {
+      title: "Activos ahora",
+      empty: "No hay agentes en ejecución",
     },
     workspace: {
       status: {

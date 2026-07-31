@@ -6,6 +6,8 @@ import {
   ScrollView,
   type GestureResponderEvent,
   type PressableStateCallbackType,
+  type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import { useMutation } from "@tanstack/react-query";
@@ -20,6 +22,7 @@ import {
   useRef,
   type ReactElement,
   type MutableRefObject,
+  type ReactNode,
   type Ref,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,8 +33,18 @@ import {
   type ActiveWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { baseColors } from "@/styles/theme";
 import type { Theme } from "@/styles/theme";
 import { type GestureType } from "react-native-gesture-handler";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { DiffStat } from "@/components/diff-stat";
 import {
@@ -39,10 +52,13 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  Eye,
+  EyeOff,
   GitPullRequest,
   Settings,
   MoreVertical,
   Plus,
+  SquareTerminal,
   Trash2,
 } from "lucide-react-native";
 import { NestableScrollContainer } from "react-native-draggable-flatlist";
@@ -60,6 +76,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { useProjectIconDataByProjectKey } from "@/projects/project-icons";
 import {
   buildNewWorkspaceRoute,
+  buildHostWorkspaceRoute,
   buildProjectSettingsRoute,
   parseHostWorkspaceRouteFromPathname,
 } from "@/utils/host-routes";
@@ -87,8 +104,10 @@ import { hasVisibleOrderChanged, mergeWithRemainder } from "@/utils/sidebar-reor
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-display-name";
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
-import { isEmphasizedStatusDotBucket } from "@/utils/status-dot-color";
+import { getStatusDotBaseColor, isEmphasizedStatusDotBucket } from "@/utils/status-dot-color";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
+import { STATUS_BUCKET_ORDER, useStatusBucketLabels } from "@/hooks/sidebar-status-view-model";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { SidebarStatusWorkspaceList } from "@/components/sidebar/sidebar-status-list";
 import type { StatusGroup } from "@/hooks/sidebar-status-view-model";
 import { SidebarWorkspaceMenu } from "@/components/sidebar/sidebar-workspace-menu";
@@ -99,11 +118,18 @@ import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar
 import {
   SidebarWorkspaceRowFrame,
   SidebarWorkspaceRowContent,
+  SidebarSelectionAccentBar,
   SidebarWorkspaceShortcutBadge,
-  SidebarWorkspaceTrailingActionBase,
-  SidebarWorkspaceTrailingActionOverlay,
+  SidebarWorkspaceTrailingActionMenuSlot,
   SidebarWorkspaceTrailingActionSlot,
 } from "@/components/sidebar/sidebar-workspace-row-content";
+import { SidebarWorkspaceAgentRows } from "@/components/sidebar/sidebar-agent-row";
+import { SidebarDoneWorkspacesToggle } from "@/components/sidebar/sidebar-done-workspaces-toggle";
+import { shouldSweepWorkspace } from "@/components/sidebar/sidebar-project-collapse";
+import { useAgentDoneStore } from "@/stores/agent-done-store";
+import { useSessionStore, type Agent } from "@/stores/session-store";
+import { useShallow } from "zustand/shallow";
+import { PulsingDot, PulsingHalo } from "@/components/ui/pulsing-dot";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Shortcut } from "@/components/ui/shortcut";
@@ -115,12 +141,16 @@ import type { PrHint } from "@/git/use-pr-status-query";
 import {
   buildSidebarProjectRowModel,
   resolveSidebarProjectIconTarget,
+  resolveSidebarProjectTerminalTarget,
   type SidebarProjectHostTarget,
+  type SidebarProjectTerminalTarget,
 } from "@/utils/sidebar-project-row-model";
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { requireWorkspaceDirectory } from "@/utils/workspace-directory";
 import { useWorkspaceArchive } from "@/workspace/use-workspace-archive";
+import { selectProjectWorkspacesToArchive } from "@/workspace/project-workspace-archive";
+import { archiveWorkspacesOptimistically } from "@/workspace/workspace-archive";
 import {
   getCurrentProjectRemoveReadiness,
   removeProjectFromHosts,
@@ -131,6 +161,7 @@ import {
   getIsElectron,
 } from "@/constants/platform";
 import { getDesktopHost } from "@/desktop/host";
+import { prepareWorkspaceTerminalPane } from "@/utils/workspace-navigation";
 
 const workspaceKeyExtractor = (workspace: SidebarWorkspacePlacement) => workspace.workspaceKey;
 
@@ -142,11 +173,14 @@ const EMPHASIZED_STATUS_DOT_SIZE = 9;
 const DEFAULT_STATUS_DOT_OFFSET = 0;
 const EMPHASIZED_STATUS_DOT_OFFSET = -1;
 const ThemedExternalLink = withUnistyles(ExternalLink);
+const ThemedEye = withUnistyles(Eye);
+const ThemedEyeOff = withUnistyles(EyeOff);
 const ThemedGitPullRequest = withUnistyles(GitPullRequest);
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 const ThemedSyncedLoader = withUnistyles(SyncedLoader);
 const ThemedPlus = withUnistyles(Plus);
+const ThemedSquareTerminal = withUnistyles(SquareTerminal);
 const ThemedMoreVertical = withUnistyles(MoreVertical);
 const ThemedTrash2 = withUnistyles(Trash2);
 const ThemedSettings = withUnistyles(Settings);
@@ -257,6 +291,9 @@ interface ProjectHeaderRowProps {
   chevron: "expand" | "collapse" | null;
   onPress: () => void;
   worktreeTarget: SidebarProjectHostTarget | null;
+  terminalTarget: SidebarProjectTerminalTarget | null;
+  terminalLoading: boolean;
+  onTerminalPress: () => void;
   isProjectActive?: boolean;
   onWorkspacePress?: () => void;
   onWorktreeCreated?: (workspaceId: string) => void;
@@ -269,7 +306,18 @@ interface ProjectHeaderRowProps {
   onRemoveProject?: () => void;
   removeProjectStatus?: "idle" | "pending";
   dragHandleProps?: DraggableListDragHandleProps;
+  statusRollup?: SidebarProjectStatusRollupItem[];
+  doneCount?: number;
+  doneExpanded?: boolean;
+  onToggleDone?: () => void;
 }
+
+export interface SidebarProjectStatusRollupItem {
+  bucket: SidebarStateBucket;
+  count: number;
+}
+
+const EMPTY_STATUS_ROLLUP: SidebarProjectStatusRollupItem[] = [];
 
 interface WorkspaceRowInnerProps {
   workspace: SidebarWorkspaceEntry;
@@ -317,9 +365,10 @@ export function PrBadge({ hint }: { hint: PrHint }) {
   const handleHoverIn = useCallback(() => setIsHovered(true), []);
   const handleHoverOut = useCallback(() => setIsHovered(false), []);
 
-  const textStyle = isHovered
-    ? [prBadgeStyles.text, prBadgeStyles.textHovered]
-    : prBadgeStyles.text;
+  const textStyle = useMemo<StyleProp<TextStyle>>(
+    () => (isHovered ? [prBadgeStyles.text, prBadgeStyles.textHovered] : prBadgeStyles.text),
+    [isHovered],
+  );
   const iconUniProps = isHovered ? foregroundColorMapping : getPrIconUniMapping(hint.state);
   const presentation = getForgePresentation(normalizeForge(hint.forge));
 
@@ -379,6 +428,13 @@ function getProjectWorkspaceRowStyle({
 
 function noop() {}
 
+function projectRowExpandedState(chevron: "expand" | "collapse" | null) {
+  if (chevron === null) {
+    return undefined;
+  }
+  return { expanded: chevron === "collapse" };
+}
+
 const prBadgeStyles = StyleSheet.create((theme) => ({
   badge: {
     flexDirection: "row",
@@ -398,31 +454,6 @@ const prBadgeStyles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
   },
 }));
-
-function StatusDotOverlay({
-  dotColorStyle,
-  size,
-  offset,
-}: {
-  dotColorStyle: ViewStyle;
-  size: number;
-  offset: number;
-}) {
-  const overlayStyle = useMemo(
-    () => [
-      styles.statusDotOverlay,
-      dotColorStyle,
-      {
-        width: size,
-        height: size,
-        right: offset,
-        bottom: offset,
-      },
-    ],
-    [dotColorStyle, size, offset],
-  );
-  return <View style={overlayStyle} />;
-}
 
 function ProjectLeadingVisual({
   displayName,
@@ -486,52 +517,152 @@ function ProjectRowTrailingActions({
   project,
   displayName,
   worktreeTarget,
-  isHovered,
-  isMobileBreakpoint,
+  terminalTarget,
+  terminalLoading,
+  onTerminalPress,
   isProjectActive,
   onBeginWorkspaceSetup,
   onRemoveProject,
   removeProjectStatus,
+  doneCount,
+  doneExpanded,
+  onToggleDone,
 }: {
   project: SidebarProjectEntry;
   displayName: string;
   worktreeTarget: SidebarProjectHostTarget | null;
-  isHovered: boolean;
-  isMobileBreakpoint: boolean;
+  terminalTarget: SidebarProjectTerminalTarget | null;
+  terminalLoading: boolean;
+  onTerminalPress: () => void;
   isProjectActive: boolean;
   onBeginWorkspaceSetup: () => void;
   onRemoveProject?: () => void;
   removeProjectStatus: "idle" | "pending" | "success";
+  doneCount?: number;
+  doneExpanded?: boolean;
+  onToggleDone?: () => void;
 }) {
-  const actionsVisible = isHovered || platformIsNative || isMobileBreakpoint;
+  // Touch mode (spec §5.2): the + and kebab stay visible instead of hiding
+  // behind hover, so the row never reflows its trailing content.
   return (
     <View style={styles.projectTrailingActions}>
+      {terminalTarget ? (
+        <ProjectTerminalButton
+          loading={terminalLoading}
+          onPress={onTerminalPress}
+          testID={`sidebar-project-terminal-${project.projectKey}`}
+        />
+      ) : null}
       {worktreeTarget ? (
         <NewWorktreeButton
           displayName={displayName}
           onPress={onBeginWorkspaceSetup}
-          visible={actionsVisible}
           showShortcutHint={isProjectActive}
           testID={`sidebar-project-new-worktree-${project.projectKey}`}
         />
       ) : null}
       {onRemoveProject ? (
-        <View
-          style={!actionsVisible && styles.projectKebabButtonHidden}
-          pointerEvents={actionsVisible ? "auto" : "none"}
-        >
-          <ProjectKebabMenu
-            projectKey={project.projectKey}
-            projectPath={project.iconWorkingDir}
-            onRemoveProject={onRemoveProject}
-            removeProjectStatus={removeProjectStatus}
-          />
-        </View>
+        <ProjectKebabMenu
+          projectKey={project.projectKey}
+          projectPath={project.iconWorkingDir}
+          onRemoveProject={onRemoveProject}
+          removeProjectStatus={removeProjectStatus}
+          doneCount={doneCount}
+          doneExpanded={doneExpanded}
+          onToggleDone={onToggleDone}
+        />
       ) : null}
     </View>
   );
 }
 
+function ProjectRowShortcutBadge({
+  showShortcutBadge,
+  shortcutNumber,
+}: {
+  showShortcutBadge: boolean;
+  shortcutNumber: number | null;
+}) {
+  if (!showShortcutBadge || shortcutNumber === null) {
+    return null;
+  }
+  return (
+    <View style={styles.projectShortcutBadgeOverlay} pointerEvents="none">
+      <SidebarWorkspaceShortcutBadge number={shortcutNumber} />
+    </View>
+  );
+}
+
+// Pills for in-flight states pulse gently (0.83Hz — same rhythm as the pulsing
+// dot). Failed/done stay static: motion means "in progress".
+const PULSING_ROLLUP_BUCKETS: ReadonlySet<SidebarStateBucket> = new Set([
+  "needs_input",
+  "running",
+  "attention",
+]);
+
+function RollupPillPulse({ children }: { children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      return;
+    }
+    progress.value = withRepeat(
+      withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(progress);
+  }, [progress, reduceMotion]);
+
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.value * 0.35 }));
+
+  if (reduceMotion) {
+    return <View>{children}</View>;
+  }
+  return <Animated.View style={pulseStyle}>{children}</Animated.View>;
+}
+
+function SidebarProjectStatusRollup({ items }: { items: SidebarProjectStatusRollupItem[] }) {
+  const statusBucketLabels = useStatusBucketLabels();
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <View style={styles.projectStatusRollup} testID="sidebar-project-status-rollup">
+      {items.slice(0, 3).map((item) => (
+        <View
+          key={item.bucket}
+          accessibilityLabel={`${item.count} ${statusBucketLabels[item.bucket]}`}
+        >
+          {PULSING_ROLLUP_BUCKETS.has(item.bucket) ? (
+            <RollupPillPulse>
+              <StatusBadge label={`${item.count}`} variant={STATUS_ROLLUP_VARIANT[item.bucket]} />
+            </RollupPillPulse>
+          ) : (
+            <StatusBadge label={`${item.count}`} variant={STATUS_ROLLUP_VARIANT[item.bucket]} />
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const STATUS_ROLLUP_VARIANT: Record<
+  SidebarStateBucket,
+  "success" | "error" | "warning" | "info" | "muted"
+> = {
+  needs_input: "warning",
+  failed: "error",
+  running: "info",
+  attention: "success",
+  done: "muted",
+};
+
+const doneShowLeadingIcon = <ThemedEye size={14} uniProps={foregroundMutedColorMapping} />;
+const doneHideLeadingIcon = <ThemedEyeOff size={14} uniProps={foregroundMutedColorMapping} />;
 const trash2LeadingIcon = <ThemedTrash2 size={14} uniProps={foregroundMutedColorMapping} />;
 const settingsLeadingIcon = <ThemedSettings size={14} uniProps={foregroundMutedColorMapping} />;
 const openInNewWindowLeadingIcon = (
@@ -552,11 +683,18 @@ function ProjectKebabMenu({
   projectPath,
   onRemoveProject,
   removeProjectStatus,
+  doneCount = 0,
+  doneExpanded = false,
+  onToggleDone,
 }: {
   projectKey: string;
   projectPath: string;
   onRemoveProject: () => void;
   removeProjectStatus: "idle" | "pending" | "success";
+  /** Done workspaces swept behind the project; 0 hides the toggle item. */
+  doneCount?: number;
+  doneExpanded?: boolean;
+  onToggleDone?: () => void;
 }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -591,6 +729,17 @@ function ProjectKebabMenu({
         {renderKebabTriggerIcon}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" width={220}>
+        {doneCount > 0 && onToggleDone ? (
+          <DropdownMenuItem
+            testID={`sidebar-project-menu-toggle-done-${projectKey}`}
+            leading={doneExpanded ? doneHideLeadingIcon : doneShowLeadingIcon}
+            onSelect={onToggleDone}
+          >
+            {doneExpanded
+              ? t("sidebar.project.actions.hideDone")
+              : t("sidebar.project.actions.showDone", { count: doneCount })}
+          </DropdownMenuItem>
+        ) : null}
         {canOpenProjectSettings ? (
           <DropdownMenuItem
             testID={`sidebar-project-menu-open-settings-${projectKey}`}
@@ -625,8 +774,6 @@ function ProjectKebabMenu({
 
 function WorkspaceRowRightGroup({
   workspace,
-  isHovered,
-  isTouchPlatform,
   isCreating,
   showShortcutBadge,
   shortcutNumber,
@@ -643,8 +790,6 @@ function WorkspaceRowRightGroup({
   onTogglePin,
 }: {
   workspace: SidebarWorkspaceEntry;
-  isHovered: boolean;
-  isTouchPlatform: boolean;
   isCreating: boolean;
   showShortcutBadge: boolean;
   shortcutNumber: number | null;
@@ -662,45 +807,40 @@ function WorkspaceRowRightGroup({
 }) {
   const { t } = useTranslation();
   const showShortcut = showShortcutBadge && shortcutNumber !== null;
-  const showKebab = Boolean(onArchive && (isHovered || isTouchPlatform));
-  const showKebabInSlot = showKebab && !showShortcut;
-  const shouldRenderActionSlot = Boolean(onArchive || workspace.diffStat);
 
   return (
     <>
       {isCreating ? (
         <Text style={styles.workspaceCreatingText}>{t("sidebar.workspace.status.creating")}</Text>
       ) : null}
-      {shouldRenderActionSlot ? (
+      {onArchive || workspace.diffStat ? (
         <SidebarWorkspaceTrailingActionSlot>
-          <SidebarWorkspaceTrailingActionBase
-            visible={Boolean(workspace.diffStat && !showKebabInSlot && !showShortcut)}
-          >
-            {workspace.diffStat ? (
-              <DiffStat
-                additions={workspace.diffStat.additions}
-                deletions={workspace.diffStat.deletions}
-              />
-            ) : null}
-          </SidebarWorkspaceTrailingActionBase>
-          <SidebarWorkspaceTrailingActionOverlay visible={showKebabInSlot}>
-            {onArchive ? (
-              <SidebarWorkspaceMenu
-                workspaceKey={workspace.workspaceKey}
-                onCopyPath={onCopyPath}
-                onCopyBranchName={onCopyBranchName}
-                onRename={onRename}
-                onMarkAsRead={onMarkAsRead}
-                onArchive={onArchive}
-                archiveLabel={archiveLabel}
-                archiveStatus={archiveStatus}
-                archivePendingLabel={archivePendingLabel}
-                archiveShortcutKeys={archiveShortcutKeys}
-                isPinned={isPinned}
-                onTogglePin={onTogglePin}
-              />
-            ) : null}
-          </SidebarWorkspaceTrailingActionOverlay>
+          {!showShortcut && workspace.diffStat ? (
+            <DiffStat
+              additions={workspace.diffStat.additions}
+              deletions={workspace.diffStat.deletions}
+            />
+          ) : null}
+          {onArchive ? (
+            <SidebarWorkspaceTrailingActionMenuSlot>
+              {showShortcut ? null : (
+                <SidebarWorkspaceMenu
+                  workspaceKey={workspace.workspaceKey}
+                  onCopyPath={onCopyPath}
+                  onCopyBranchName={onCopyBranchName}
+                  onRename={onRename}
+                  onMarkAsRead={onMarkAsRead}
+                  onArchive={onArchive}
+                  archiveLabel={archiveLabel}
+                  archiveStatus={archiveStatus}
+                  archivePendingLabel={archivePendingLabel}
+                  archiveShortcutKeys={archiveShortcutKeys}
+                  isPinned={isPinned}
+                  onTogglePin={onTogglePin}
+                />
+              )}
+            </SidebarWorkspaceTrailingActionMenuSlot>
+          ) : null}
         </SidebarWorkspaceTrailingActionSlot>
       ) : null}
     </>
@@ -762,19 +902,18 @@ function ProjectLeadingVisualStatus({
   if (activeWorkspace.statusBucket === "needs_input") {
     return (
       <View style={styles.projectLeadingVisualSlot}>
+        <PulsingHalo color={baseColors.amber[500]} size={14} style={styles.needsInputHalo} />
         <ThemedCircleAlert size={14} uniProps={amberColorMapping} />
       </View>
     );
   }
 
-  const dotColorStyle = getStatusDotColorStyle(activeWorkspace.statusBucket);
+  const dotColor = getStatusDotBaseColor(activeWorkspace.statusBucket);
   const statusDotSize = isEmphasizedStatusDotBucket(activeWorkspace.statusBucket)
     ? EMPHASIZED_STATUS_DOT_SIZE
     : DEFAULT_STATUS_DOT_SIZE;
-  const statusDotOffset =
-    statusDotSize === EMPHASIZED_STATUS_DOT_SIZE
-      ? EMPHASIZED_STATUS_DOT_OFFSET
-      : DEFAULT_STATUS_DOT_OFFSET;
+  const statusDotOverlayStyle =
+    statusDotOverlayStyles[statusDotSize === EMPHASIZED_STATUS_DOT_SIZE ? "emphasized" : "default"];
 
   return (
     <View style={styles.projectLeadingVisualSlot}>
@@ -783,12 +922,8 @@ function ProjectLeadingVisualStatus({
         placeholderInitial={placeholderInitial}
         projectKey={projectKey}
       />
-      {dotColorStyle ? (
-        <StatusDotOverlay
-          dotColorStyle={dotColorStyle}
-          size={statusDotSize}
-          offset={statusDotOffset}
-        />
+      {dotColor ? (
+        <PulsingDot color={dotColor} size={statusDotSize} bordered style={statusDotOverlayStyle} />
       ) : null}
     </View>
   );
@@ -807,14 +942,12 @@ function ProjectInlineChevron({ chevron }: { chevron: "expand" | "collapse" | nu
 function NewWorktreeButton({
   displayName,
   onPress,
-  visible,
   loading = false,
   testID,
   showShortcutHint = false,
 }: {
   displayName: string;
   onPress: () => void;
-  visible: boolean;
   loading?: boolean;
   testID: string;
   showShortcutHint?: boolean;
@@ -825,10 +958,9 @@ function NewWorktreeButton({
   const pressableStyle = useCallback(
     ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
       styles.projectIconActionButton,
-      !visible && styles.projectIconActionButtonHidden,
       (Boolean(hovered) || pressed) && !loading && styles.projectIconActionButtonHovered,
     ],
-    [visible, loading],
+    [loading],
   );
 
   const handlePress = useCallback(
@@ -840,13 +972,14 @@ function NewWorktreeButton({
   );
 
   return (
-    <View style={styles.projectTrailingControlSlot} pointerEvents={visible ? "auto" : "none"}>
+    <View style={styles.projectTrailingControlSlot}>
       <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
-        <TooltipTrigger asChild disabled={!visible}>
+        <TooltipTrigger asChild>
           <Pressable
             style={pressableStyle}
             onPress={handlePress}
             disabled={loading}
+            hitSlop={4}
             accessibilityRole={platformIsWeb ? undefined : "button"}
             accessibilityLabel={t("sidebar.workspace.actions.createWorkspaceFor", {
               projectName: displayName,
@@ -876,6 +1009,68 @@ function NewWorktreeButton({
               <Shortcut chord={newWorktreeKeys} style={styles.projectActionTooltipShortcut} />
             ) : null}
           </View>
+        </TooltipContent>
+      </Tooltip>
+    </View>
+  );
+}
+
+function ProjectTerminalButton({
+  loading,
+  onPress,
+  testID,
+}: {
+  loading: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  const { t } = useTranslation();
+  const handlePress = useCallback(
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      onPress();
+    },
+    [onPress],
+  );
+  const pressableStyle = useCallback(
+    ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
+      styles.projectIconActionButton,
+      (Boolean(hovered) || pressed) && !loading && styles.projectIconActionButtonHovered,
+    ],
+    [loading],
+  );
+
+  return (
+    <View style={styles.projectTrailingControlSlot}>
+      <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+        <TooltipTrigger asChild>
+          <Pressable
+            style={pressableStyle}
+            onPress={handlePress}
+            disabled={loading}
+            hitSlop={4}
+            accessibilityRole={platformIsWeb ? undefined : "button"}
+            accessibilityLabel={t("workspace.tabs.fallback.terminal")}
+            testID={testID}
+          >
+            {({ hovered, pressed }) =>
+              loading ? (
+                <ThemedLoadingSpinner size={14} uniProps={foregroundMutedColorMapping} />
+              ) : (
+                <ThemedSquareTerminal
+                  size={15}
+                  uniProps={
+                    hovered || pressed ? foregroundColorMapping : foregroundMutedColorMapping
+                  }
+                />
+              )
+            }
+          </Pressable>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="center" offset={8}>
+          <Text style={styles.projectActionTooltipText}>
+            {t("workspace.tabs.fallback.terminal")}
+          </Text>
         </TooltipContent>
       </Tooltip>
     </View>
@@ -956,6 +1151,9 @@ function ProjectHeaderRow({
   chevron,
   onPress,
   worktreeTarget,
+  terminalTarget,
+  terminalLoading,
+  onTerminalPress,
   isProjectActive = false,
   onWorkspacePress,
   onWorktreeCreated: _onWorktreeCreated,
@@ -968,9 +1166,12 @@ function ProjectHeaderRow({
   onRemoveProject,
   removeProjectStatus = "idle",
   dragHandleProps,
+  statusRollup = EMPTY_STATUS_ROLLUP,
+  doneCount,
+  doneExpanded,
+  onToggleDone,
 }: ProjectHeaderRowProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const isMobileBreakpoint = useIsCompactFormFactor();
   const handleBeginWorkspaceSetup = useCallback(() => {
     if (!worktreeTarget) {
       return;
@@ -989,12 +1190,9 @@ function ProjectHeaderRow({
     drag,
     menuController,
   });
-  const {
-    role: _dragRole,
-    tabIndex: _dragTabIndex,
-    "aria-roledescription": _dragRoleDescription,
-    ...dragAttributes
-  } = dragHandleProps?.attributes ?? {};
+  // Keep dnd-kit's a11y attributes (role/tabIndex/aria-roledescription) on the
+  // row so drag reorder stays keyboard-reachable.
+  const dragAttributes = dragHandleProps?.attributes ?? {};
 
   const handlePress = useCallback(() => {
     if (interaction.didLongPressRef.current) {
@@ -1006,6 +1204,8 @@ function ProjectHeaderRow({
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
+
+  const expandedState = projectRowExpandedState(chevron);
 
   const projectRowStyle = useCallback(
     ({ pressed }: PressableStateCallbackType) => [
@@ -1037,37 +1237,44 @@ function ProjectHeaderRow({
           </Text>
         </View>
       </View>
+      <SidebarProjectStatusRollup items={statusRollup} />
       <ProjectRowTrailingActions
         project={project}
         displayName={displayName}
         worktreeTarget={worktreeTarget}
-        isHovered={isHovered}
-        isMobileBreakpoint={isMobileBreakpoint}
+        terminalTarget={terminalTarget}
+        terminalLoading={terminalLoading}
+        onTerminalPress={onTerminalPress}
         isProjectActive={isProjectActive}
         onBeginWorkspaceSetup={handleBeginWorkspaceSetup}
         onRemoveProject={onRemoveProject}
         removeProjectStatus={removeProjectStatus}
+        doneCount={doneCount}
+        doneExpanded={doneExpanded}
+        onToggleDone={onToggleDone}
       />
-      {showShortcutBadge && shortcutNumber !== null ? (
-        <View style={styles.projectShortcutBadgeOverlay} pointerEvents="none">
-          <SidebarWorkspaceShortcutBadge number={shortcutNumber} />
-        </View>
-      ) : null}
+      <ProjectRowShortcutBadge
+        showShortcutBadge={showShortcutBadge}
+        shortcutNumber={shortcutNumber}
+      />
     </>
   );
 
   if (menuController) {
     return (
       <View
-        {...dragAttributes}
         {...dragHandleProps?.listeners}
         ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
+        style={styles.workspaceRowContainer}
       >
+        {selected ? <SidebarSelectionAccentBar /> : null}
         <ContextMenuTrigger
           enabledOnMobile={false}
           accessibilityRole="button"
+          accessibilityLabel={displayName}
+          {...dragAttributes}
           style={projectRowStyle}
           onPressIn={interaction.handlePressIn}
           onTouchMove={interaction.handleTouchMove}
@@ -1083,14 +1290,18 @@ function ProjectHeaderRow({
 
   return (
     <View
-      {...dragAttributes}
       {...dragHandleProps?.listeners}
       ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
+      style={styles.workspaceRowContainer}
     >
+      {selected ? <SidebarSelectionAccentBar /> : null}
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={displayName}
+        accessibilityState={expandedState}
+        {...dragAttributes}
         style={projectRowStyle}
         onPressIn={interaction.handlePressIn}
         onTouchMove={interaction.handleTouchMove}
@@ -1135,12 +1346,9 @@ function WorkspaceRowInner({
     drag,
     menuController,
   });
-  const {
-    role: _dragRole,
-    tabIndex: _dragTabIndex,
-    "aria-roledescription": _dragRoleDescription,
-    ...dragAttributes
-  } = dragHandleProps?.attributes ?? {};
+  // Keep dnd-kit's a11y attributes (role/tabIndex/aria-roledescription) on the
+  // row so drag reorder stays keyboard-reachable.
+  const dragAttributes = dragHandleProps?.attributes ?? {};
 
   const handlePress = useCallback(() => {
     if (interaction.didLongPressRef.current) {
@@ -1151,6 +1359,8 @@ function WorkspaceRowInner({
   }, [interaction.didLongPressRef, onPress]);
 
   const accessibilityState = useMemo(() => ({ selected }), [selected]);
+  const statusBucketLabels = useStatusBucketLabels();
+  const rowAccessibilityLabel = `${workspace.title?.trim() || workspace.name}, ${statusBucketLabels[workspace.statusBucket]}`;
 
   return (
     <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging}>
@@ -1171,17 +1381,19 @@ function WorkspaceRowInner({
         });
         return (
           <View
-            {...dragAttributes}
             {...dragHandleProps?.listeners}
             ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
             style={styles.workspaceRowContainer}
             {...hoverHandlers}
           >
+            {selected ? <SidebarSelectionAccentBar /> : null}
             <Pressable
               disabled={isArchiving}
               aria-selected={selected}
               accessibilityRole="button"
+              accessibilityLabel={rowAccessibilityLabel}
               accessibilityState={accessibilityState}
+              {...dragAttributes}
               style={workspaceRowStyle}
               onPressIn={interaction.handlePressIn}
               onTouchMove={interaction.handleTouchMove}
@@ -1202,8 +1414,6 @@ function WorkspaceRowInner({
               >
                 <WorkspaceRowRightGroup
                   workspace={workspace}
-                  isHovered={isHovered}
-                  isTouchPlatform={isTouchPlatform}
                   isCreating={isCreating}
                   showShortcutBadge={showShortcutBadge}
                   shortcutNumber={shortcutNumber}
@@ -1623,12 +1833,52 @@ function ProjectBlock({
   supportsPinningByServerId: ReadonlyMap<string, boolean>;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
 }) {
+  // Sweep quiet workspaces behind one toggle per project: a workspace joins
+  // the done group once every agent on it is done and quiet for a day, or
+  // manually marked done from the agent row menu.
+  const manualDoneKeys = useAgentDoneStore((state) => state.manuallyDoneAgentKeys);
+  const workspaceSweepMap = useSessionStore(
+    useShallow((state) => {
+      const map = new Map<string, boolean>();
+      for (const workspace of project.workspaces) {
+        const session = state.sessions[workspace.serverId];
+        const agents: Agent[] = [];
+        if (session) {
+          for (const agent of session.agents.values()) {
+            if (agent.workspaceId === workspace.workspaceId) {
+              agents.push(agent);
+            }
+          }
+        }
+        map.set(
+          workspace.workspaceKey,
+          shouldSweepWorkspace({
+            hydrated: workspaceEntriesByKey.has(workspace.workspaceKey),
+            agents,
+            manualDoneKeys,
+            nowMs: Date.now(),
+          }),
+        );
+      }
+      return map;
+    }),
+  );
+  const workspaceSweep = useMemo(() => {
+    const live: SidebarWorkspacePlacement[] = [];
+    const done: SidebarWorkspacePlacement[] = [];
+    for (const workspace of project.workspaces) {
+      (workspaceSweepMap.get(workspace.workspaceKey) === true ? done : live).push(workspace);
+    }
+    return { live, done };
+  }, [project.workspaces, workspaceSweepMap]);
   const {
     visibleItems: visibleWorkspaces,
     expanded: workspacesExpanded,
     canToggle: canToggleWorkspaces,
     toggleExpanded: toggleWorkspacesExpanded,
-  } = useLimitedSidebarGroup(project.workspaces);
+  } = useLimitedSidebarGroup(workspaceSweep.live);
+  const [doneExpanded, setDoneExpanded] = useState(false);
+  const toggleDoneExpanded = useCallback(() => setDoneExpanded((current) => !current), []);
   const rowModel = useMemo(
     () =>
       buildSidebarProjectRowModel({
@@ -1645,6 +1895,27 @@ function ProjectBlock({
     enabled: selectionEnabled,
   });
 
+  // Per-bucket counts feed the animated status pills on the project row, so a
+  // project always shows what's running or waiting even when collapsed. Count
+  // only live workspaces: swept (marked-done/archived) rows already dropped
+  // out of view, so their pills must drop out too.
+  const statusRollup = useMemo(() => {
+    const counts = new Map<SidebarStateBucket, number>();
+    for (const workspace of workspaceSweep.live) {
+      const entry = workspaceEntriesByKey.get(workspace.workspaceKey);
+      if (!entry || entry.statusBucket === "done") continue;
+      counts.set(entry.statusBucket, (counts.get(entry.statusBucket) ?? 0) + 1);
+    }
+    const rollup: SidebarProjectStatusRollupItem[] = [];
+    for (const bucket of STATUS_BUCKET_ORDER) {
+      const count = counts.get(bucket);
+      if (count) {
+        rollup.push({ bucket, count });
+      }
+    }
+    return rollup;
+  }, [workspaceSweep, workspaceEntriesByKey]);
+
   const renderWorkspaceRow = useCallback(
     (
       item: SidebarWorkspacePlacement,
@@ -1655,25 +1926,32 @@ function ProjectBlock({
       },
     ) => {
       return (
-        <MemoWorkspaceRowItem
-          workspace={item}
-          workspaceEntry={workspaceEntriesByKey.get(item.workspaceKey) ?? null}
-          subtitle={
-            showHostLabels ? (hostLabelByServerId.get(item.serverId) ?? item.serverId) : null
-          }
-          shortcutNumber={shortcutIndexByWorkspaceKey.get(item.workspaceKey) ?? null}
-          showShortcutBadge={showShortcutBadges}
-          canCopyBranchName={project.projectKind === "git"}
-          canPin={supportsPinningByServerId.get(item.serverId) === true}
-          onToggleWorkspacePin={onToggleWorkspacePin}
-          isCreating={creatingWorkspaceIds.has(item.workspaceId)}
-          selectionEnabled={selectionEnabled}
-          activeWorkspaceSelection={activeWorkspaceSelection}
-          onWorkspacePress={onWorkspacePress}
-          drag={input?.drag}
-          isDragging={input?.isDragging}
-          dragHandleProps={input?.dragHandleProps}
-        />
+        <View>
+          <MemoWorkspaceRowItem
+            workspace={item}
+            workspaceEntry={workspaceEntriesByKey.get(item.workspaceKey) ?? null}
+            subtitle={
+              showHostLabels ? (hostLabelByServerId.get(item.serverId) ?? item.serverId) : null
+            }
+            shortcutNumber={shortcutIndexByWorkspaceKey.get(item.workspaceKey) ?? null}
+            showShortcutBadge={showShortcutBadges}
+            canCopyBranchName={project.projectKind === "git"}
+            canPin={supportsPinningByServerId.get(item.serverId) === true}
+            onToggleWorkspacePin={onToggleWorkspacePin}
+            isCreating={creatingWorkspaceIds.has(item.workspaceId)}
+            selectionEnabled={selectionEnabled}
+            activeWorkspaceSelection={activeWorkspaceSelection}
+            onWorkspacePress={onWorkspacePress}
+            drag={input?.drag}
+            isDragging={input?.isDragging}
+            dragHandleProps={input?.dragHandleProps}
+          />
+          <SidebarWorkspaceAgentRows
+            serverId={item.serverId}
+            workspaceId={item.workspaceId}
+            onWorkspacePress={onWorkspacePress}
+          />
+        </View>
       );
     },
     [
@@ -1718,6 +1996,60 @@ function ProjectBlock({
   const toast = useToast();
   const { t } = useTranslation();
   const [isRemovingProject, setIsRemovingProject] = useState(false);
+  const terminalTarget = useMemo(
+    () => resolveSidebarProjectTerminalTarget(project, workspaceEntriesByKey),
+    [project, workspaceEntriesByKey],
+  );
+  const terminalMutation = useMutation({
+    mutationFn: async () => {
+      if (!terminalTarget) {
+        throw new Error(t("sidebar.workspace.toasts.workspacePathUnavailable"));
+      }
+      const client = getHostRuntimeStore().getClient(terminalTarget.serverId);
+      if (!client) {
+        throw new Error(t("workspace.terminal.hostDisconnected"));
+      }
+      const listed = await client.listTerminals(terminalTarget.workspaceDirectory, undefined, {
+        workspaceId: terminalTarget.workspaceId,
+      });
+      const existing = listed.terminals.find(
+        (terminal) => !terminalTarget.scriptTerminalIds.has(terminal.id),
+      );
+      if (existing) {
+        return existing.id;
+      }
+      const created = await client.createTerminal(
+        terminalTarget.workspaceDirectory,
+        undefined,
+        undefined,
+        { workspaceId: terminalTarget.workspaceId },
+      );
+      if (!created.terminal) {
+        throw new Error(created.error ?? t("workspace.terminal.unableToSubscribe"));
+      }
+      return created.terminal.id;
+    },
+    onSuccess: (terminalId) => {
+      if (!terminalTarget) return;
+      prepareWorkspaceTerminalPane({
+        serverId: terminalTarget.serverId,
+        workspaceId: terminalTarget.workspaceId,
+        terminalId,
+      });
+      onWorkspacePress?.();
+      router.navigate(
+        buildHostWorkspaceRoute(terminalTarget.serverId, terminalTarget.workspaceId) as Href,
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t("workspace.terminal.unableToSubscribe"),
+      );
+    },
+  });
+  const handleTerminalPress = useCallback(() => {
+    terminalMutation.mutate();
+  }, [terminalMutation]);
 
   const handleRemoveProject = useCallback(() => {
     if (isRemovingProject) {
@@ -1777,6 +2109,33 @@ function ProjectBlock({
     onToggleCollapsed(project.projectKey);
   }, [onToggleCollapsed, project.projectKey]);
 
+  // Bulk archive for the project's swept done workspaces. Risky worktrees still
+  // get their per-workspace confirm dialog (selectProjectWorkspacesToArchive).
+  const handleArchiveAllDone = useCallback(() => {
+    const entries = workspaceSweep.done
+      .map((workspace) => workspaceEntriesByKey.get(workspace.workspaceKey) ?? null)
+      .filter((entry): entry is SidebarWorkspaceEntry => entry !== null);
+    if (entries.length === 0) {
+      return;
+    }
+    void (async () => {
+      const targets = await selectProjectWorkspacesToArchive(entries);
+      if (targets.length === 0) {
+        return;
+      }
+      for (const target of targets) {
+        redirectIfArchivingActiveWorkspace({ ...target, activeWorkspaceSelection });
+      }
+      const failures = await archiveWorkspacesOptimistically({
+        getClient: (serverId) => getHostRuntimeStore().getClient(serverId),
+        workspaces: targets,
+      });
+      if (failures.length > 0) {
+        toast.error(t("sidebar.workspace.toasts.archiveFailed"));
+      }
+    })();
+  }, [workspaceSweep.done, workspaceEntriesByKey, activeWorkspaceSelection, toast, t]);
+
   let projectChildren = null;
   if (!collapsed) {
     if (project.workspaces.length > 0) {
@@ -1801,6 +2160,22 @@ function ProjectBlock({
               onPress={toggleWorkspacesExpanded}
               testID={`sidebar-project-show-more-${project.projectKey}`}
             />
+          ) : null}
+          {workspaceSweep.done.length > 0 ? (
+            <>
+              <SidebarDoneWorkspacesToggle
+                count={workspaceSweep.done.length}
+                expanded={doneExpanded}
+                onPress={toggleDoneExpanded}
+                onArchiveAll={handleArchiveAllDone}
+                testID={`sidebar-done-workspaces-toggle-${project.projectKey}`}
+              />
+              {doneExpanded
+                ? workspaceSweep.done.map((workspace) => (
+                    <View key={workspace.workspaceKey}>{renderWorkspaceRow(workspace)}</View>
+                  ))
+                : null}
+            </>
           ) : null}
         </>
       );
@@ -1829,6 +2204,9 @@ function ProjectBlock({
         worktreeTarget={
           rowModel.trailingAction.kind === "new_workspace" ? rowModel.trailingAction.target : null
         }
+        terminalTarget={terminalTarget}
+        terminalLoading={terminalMutation.isPending}
+        onTerminalPress={handleTerminalPress}
         isProjectActive={active}
         onWorkspacePress={onWorkspacePress}
         onWorktreeCreated={onWorktreeCreated}
@@ -1839,6 +2217,10 @@ function ProjectBlock({
         onRemoveProject={handleRemoveProject}
         removeProjectStatus={isRemovingProject ? "pending" : "idle"}
         dragHandleProps={dragHandleProps}
+        statusRollup={statusRollup}
+        doneCount={workspaceSweep.done.length}
+        doneExpanded={doneExpanded}
+        onToggleDone={toggleDoneExpanded}
       />
 
       {projectChildren}
@@ -2494,8 +2876,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   projectRow: {
     position: "relative",
-    minHeight: 36,
-    paddingVertical: theme.spacing[2],
+    // Compact density (spec §3): project rows are 32px.
+    minHeight: 32,
+    paddingVertical: theme.spacing[1.5],
     paddingHorizontal: theme.spacing[2],
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing[1],
@@ -2590,13 +2973,16 @@ const styles = StyleSheet.create((theme) => ({
   projectIconActionButtonHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,
   },
-  projectIconActionButtonHidden: {
-    opacity: 0,
-  },
   projectTrailingActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
+    flexShrink: 0,
+  },
+  projectStatusRollup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
     flexShrink: 0,
   },
   projectKebabButton: {
@@ -2606,9 +2992,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  projectKebabButtonHidden: {
-    opacity: 0,
   },
   projectKebabButtonHovered: {
     backgroundColor: theme.colors.surface2,
@@ -2636,11 +3019,12 @@ const styles = StyleSheet.create((theme) => ({
     right: theme.spacing[2],
   },
   workspaceRow: {
-    minHeight: 36,
+    // Compact density (spec §3): a single-line workspace row is 28px.
+    minHeight: 28,
     marginBottom: theme.spacing[1],
-    paddingVertical: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
     paddingLeft: theme.spacing[2],
-    paddingRight: theme.spacing[3],
+    paddingRight: theme.spacing[2],
     borderRadius: theme.borderRadius.lg,
     flexDirection: "column",
     alignItems: "stretch",
@@ -2697,14 +3081,12 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  statusDotOverlay: {
+  statusDotOverlayBase: {
     position: "absolute",
-    right: DEFAULT_STATUS_DOT_OFFSET,
-    bottom: DEFAULT_STATUS_DOT_OFFSET,
-    width: DEFAULT_STATUS_DOT_SIZE,
-    height: DEFAULT_STATUS_DOT_SIZE,
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1,
+  },
+  needsInputHalo: {
+    top: 1,
+    left: 1,
   },
   workspaceArchivingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -2747,35 +3129,17 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.xs,
     flexShrink: 0,
   },
-  statusDotNeedsInput: {
-    backgroundColor: theme.colors.palette.amber[500],
-    borderColor: theme.colors.surface0,
-  },
-  statusDotFailed: {
-    backgroundColor: theme.colors.palette.red[500],
-    borderColor: theme.colors.surface0,
-  },
-  statusDotRunning: {
-    backgroundColor: theme.colors.palette.blue[500],
-    borderColor: theme.colors.surface0,
-  },
-  statusDotAttention: {
-    backgroundColor: theme.colors.palette.green[500],
-    borderColor: theme.colors.surface0,
-  },
 }));
 
-function getStatusDotColorStyle(bucket: SidebarStateBucket): ViewStyle | null {
-  switch (bucket) {
-    case "needs_input":
-      return styles.statusDotNeedsInput;
-    case "failed":
-      return styles.statusDotFailed;
-    case "running":
-      return styles.statusDotRunning;
-    case "attention":
-      return styles.statusDotAttention;
-    case "done":
-      return null;
-  }
-}
+// Pre-built per size variant so the status-dot overlay style stays referentially
+// stable (react-perf: no arrays created per render).
+const statusDotOverlayStyles: Record<"default" | "emphasized", StyleProp<ViewStyle>> = {
+  default: [
+    styles.statusDotOverlayBase,
+    { right: DEFAULT_STATUS_DOT_OFFSET, bottom: DEFAULT_STATUS_DOT_OFFSET },
+  ],
+  emphasized: [
+    styles.statusDotOverlayBase,
+    { right: EMPHASIZED_STATUS_DOT_OFFSET, bottom: EMPHASIZED_STATUS_DOT_OFFSET },
+  ],
+};

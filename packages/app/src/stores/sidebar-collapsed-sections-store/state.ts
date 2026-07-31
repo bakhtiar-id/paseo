@@ -2,12 +2,15 @@ export interface CollapsedProjectsState {
   collapsedProjectKeys: Set<string>;
   collapsedStatusGroupKeys: Set<string>;
   collapsedPinned: boolean;
+  /** Projects the user explicitly expanded while they would default to collapsed. */
+  expandedProjectKeys: Set<string>;
 }
 
 export interface PersistedCollapsedProjects {
   collapsedProjectKeys?: unknown;
   collapsedStatusGroupKeys?: unknown;
   collapsedPinned?: unknown;
+  expandedProjectKeys?: unknown;
 }
 
 export function togglePinnedCollapsed(state: CollapsedProjectsState): CollapsedProjectsState {
@@ -54,15 +57,31 @@ export function setProjectCollapsed(
   return { ...state, collapsedProjectKeys: next };
 }
 
+export function setProjectExpanded(
+  state: CollapsedProjectsState,
+  projectKey: string,
+  expanded: boolean,
+): CollapsedProjectsState {
+  const next = new Set(state.expandedProjectKeys);
+  if (expanded) {
+    next.add(projectKey);
+  } else {
+    next.delete(projectKey);
+  }
+  return { ...state, expandedProjectKeys: next };
+}
+
 export function serializeCollapsedProjects(state: CollapsedProjectsState): {
   collapsedProjectKeys: string[];
   collapsedStatusGroupKeys: string[];
   collapsedPinned: boolean;
+  expandedProjectKeys: string[];
 } {
   return {
     collapsedProjectKeys: Array.from(state.collapsedProjectKeys),
     collapsedStatusGroupKeys: Array.from(state.collapsedStatusGroupKeys),
     collapsedPinned: state.collapsedPinned,
+    expandedProjectKeys: Array.from(state.expandedProjectKeys),
   };
 }
 
@@ -73,12 +92,14 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
   if (
     !persisted?.collapsedProjectKeys &&
     !persisted?.collapsedStatusGroupKeys &&
+    !persisted?.expandedProjectKeys &&
     persisted?.collapsedPinned === undefined
   ) {
     return current;
   }
   const restoredProjects = deserializeCollapsedKeys(persisted.collapsedProjectKeys);
   const restoredStatusGroups = deserializeCollapsedKeys(persisted.collapsedStatusGroupKeys);
+  const restoredExpandedProjects = deserializeCollapsedKeys(persisted.expandedProjectKeys);
   const restoredPinned =
     typeof persisted.collapsedPinned === "boolean"
       ? persisted.collapsedPinned
@@ -86,6 +107,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
   if (
     areSetsEqual(current.collapsedProjectKeys, restoredProjects) &&
     areSetsEqual(current.collapsedStatusGroupKeys, restoredStatusGroups) &&
+    areSetsEqual(current.expandedProjectKeys, restoredExpandedProjects) &&
     current.collapsedPinned === restoredPinned
   ) {
     return current;
@@ -95,6 +117,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
     collapsedProjectKeys: restoredProjects,
     collapsedStatusGroupKeys: restoredStatusGroups,
     collapsedPinned: restoredPinned,
+    expandedProjectKeys: restoredExpandedProjects,
   };
 }
 

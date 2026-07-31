@@ -856,7 +856,28 @@ export const zhCN: TranslationResources = {
       },
     },
   },
+  statusFooter: {
+    agents: "{{count}} 个代理",
+    active: "{{count}} 个活跃",
+    done: "{{count}} 个已完成",
+    hostsOnline: "{{online}}/{{total}} 台主机在线",
+    context: "上下文 {{percentage}}%",
+    updateAvailable: "有可用更新",
+    limitsUnavailable: "限额不可用",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "显示设置",
+    displayPreferencesMenu: {
+      groupBy: "分组方式",
+      project: "项目",
+      status: "状态",
+      filter: "筛选",
+      allHosts: "所有主机",
+      workspaceTitle: "工作区标题",
+      title: "标题",
+      branchName: "分支名称",
+    },
     pinned: {
       title: "已置顶",
     },
@@ -887,6 +908,17 @@ export const zhCN: TranslationResources = {
     sections: {
       sessions: "历史",
       schedules: "计划",
+      projects: "项目",
+    },
+    search: {
+      placeholder: "搜索项目、代理和文件",
+    },
+    statusBuckets: {
+      needsInput: "需要输入",
+      failed: "失败",
+      attention: "待审查",
+      running: "运行中",
+      done: "已完成",
     },
     worktreeSetup: {
       title: "设置 worktree scripts",
@@ -896,6 +928,8 @@ export const zhCN: TranslationResources = {
     project: {
       actions: {
         menu: "Project 操作",
+        showDone: "显示 {{count}} 个已完成",
+        hideDone: "隐藏已完成",
         openSettings: "打开 project 设置",
         openNewWindow: "在新窗口中打开",
         openNewWindowFailed: "无法打开新窗口",
@@ -917,6 +951,22 @@ export const zhCN: TranslationResources = {
         title: "还没有 projects",
         description: "添加 project 以开始",
       },
+    },
+    agents: {
+      menu: "代理操作",
+      archive: "归档聊天",
+      markDone: "标记为已完成",
+      unmarkDone: "取消完成标记",
+    },
+    workspaces: {
+      showDone: "{{count}} 个已完成 · 展开",
+      archiveAllDone: "归档所有已完成（{{count}}）",
+      doneMenu: "已完成工作区操作",
+      hideDone: "{{count}} 个已完成 · 收起",
+    },
+    liveNow: {
+      title: "当前进行中",
+      empty: "没有正在运行的代理",
     },
     workspace: {
       status: {

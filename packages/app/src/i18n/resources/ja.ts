@@ -875,7 +875,28 @@ export const ja: TranslationResources = {
       },
     },
   },
+  statusFooter: {
+    agents: "エージェント {{count}}",
+    active: "アクティブ {{count}}",
+    done: "完了 {{count}}",
+    hostsOnline: "{{online}}/{{total}} ホストがオンライン",
+    context: "コンテキスト {{percentage}}%",
+    updateAvailable: "アップデートがあります",
+    limitsUnavailable: "利用制限を取得できません",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "表示設定",
+    displayPreferencesMenu: {
+      groupBy: "グループ化",
+      project: "プロジェクト",
+      status: "ステータス",
+      filter: "フィルター",
+      allHosts: "すべてのホスト",
+      workspaceTitle: "ワークスペースのタイトル",
+      title: "タイトル",
+      branchName: "ブランチ名",
+    },
     pinned: {
       title: "固定済み",
     },
@@ -906,6 +927,17 @@ export const ja: TranslationResources = {
     sections: {
       sessions: "履歴",
       schedules: "スケジュール",
+      projects: "プロジェクト",
+    },
+    search: {
+      placeholder: "プロジェクト、エージェント、ファイルを検索",
+    },
+    statusBuckets: {
+      needsInput: "入力が必要",
+      failed: "失敗",
+      attention: "レビュー待ち",
+      running: "作業中",
+      done: "完了",
     },
     worktreeSetup: {
       title: "ワークツリースクリプトを設定",
@@ -916,6 +948,8 @@ export const ja: TranslationResources = {
     project: {
       actions: {
         menu: "プロジェクトアクション",
+        showDone: "完了 {{count}} 件を表示",
+        hideDone: "完了を非表示",
         openSettings: "プロジェクト設定を開く",
         openNewWindow: "新しいウィンドウで開く",
         openNewWindowFailed: "新しいウィンドウを開けませんでした",
@@ -938,6 +972,22 @@ export const ja: TranslationResources = {
         title: "プロジェクトがまだありません",
         description: "始めるにはプロジェクトを追加してください",
       },
+    },
+    agents: {
+      menu: "エージェントアクション",
+      archive: "チャットをアーカイブ",
+      markDone: "完了にする",
+      unmarkDone: "完了を解除",
+    },
+    workspaces: {
+      showDone: "完了 {{count}} 件 · 表示",
+      archiveAllDone: "完了 {{count}} 件をすべてアーカイブ",
+      doneMenu: "完了ワークスペースのアクション",
+      hideDone: "完了 {{count}} 件 · 非表示",
+    },
+    liveNow: {
+      title: "稼働中",
+      empty: "実行中のエージェントなし",
     },
     workspace: {
       status: {

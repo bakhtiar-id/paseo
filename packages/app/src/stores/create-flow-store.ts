@@ -33,7 +33,7 @@ export function isActiveCreateFlowForDraft(input: {
 
 interface CreateFlowState {
   pendingByDraftId: Record<string, PendingCreateAttempt>;
-  setPending: (pending: Omit<PendingCreateAttempt, "lifecycle">) => void;
+  setPending: (pending: Omit<PendingCreateAttempt, "lifecycle">) => boolean;
   updateAgentId: (input: { draftId: string; agentId: string }) => void;
   markLifecycle: (input: { draftId: string; lifecycle: CreateFlowLifecycleState }) => void;
   rekeyDraft: (input: { fromDraftId: string; toDraftId: string }) => void;
@@ -44,16 +44,25 @@ interface CreateFlowState {
 
 export const useCreateFlowStore = create<CreateFlowState>((set) => ({
   pendingByDraftId: {},
-  setPending: (pending) =>
-    set((state) => ({
-      pendingByDraftId: {
-        ...state.pendingByDraftId,
-        [pending.draftId]: {
-          ...pending,
-          lifecycle: "active",
+  setPending: (pending) => {
+    let claimed = false;
+    set((state) => {
+      if (state.pendingByDraftId[pending.draftId]?.lifecycle === "active") {
+        return state;
+      }
+      claimed = true;
+      return {
+        pendingByDraftId: {
+          ...state.pendingByDraftId,
+          [pending.draftId]: {
+            ...pending,
+            lifecycle: "active",
+          },
         },
-      },
-    })),
+      };
+    });
+    return claimed;
+  },
   updateAgentId: ({ draftId, agentId }) =>
     set((state) => {
       const current = state.pendingByDraftId[draftId];

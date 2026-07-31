@@ -72,6 +72,32 @@ describe("create-flow-store", () => {
     expect(useCreateFlowStore.getState().pendingByDraftId["draft-1"]).toBeUndefined();
   });
 
+  it("does not replace an active draft create", () => {
+    const store = useCreateFlowStore.getState();
+    const first = store.setPending({
+      draftId: "draft-1",
+      serverId: "server-1",
+      agentId: null,
+      clientMessageId: "msg-1",
+      text: "first",
+      timestamp: 1,
+    });
+    const second = store.setPending({
+      draftId: "draft-1",
+      serverId: "server-1",
+      agentId: null,
+      clientMessageId: "msg-2",
+      text: "second",
+      timestamp: 2,
+    });
+
+    expect(first).toBe(true);
+    expect(second).toBe(false);
+    expect(useCreateFlowStore.getState().pendingByDraftId["draft-1"]?.clientMessageId).toBe(
+      "msg-1",
+    );
+  });
+
   it("clears pending handoff state by agent", () => {
     useCreateFlowStore.getState().setPending({
       draftId: "draft-1",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Animated, View, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { useReducedMotion } from "react-native-reanimated";
 
 const SECTION_OPACITIES: readonly number[] = [1, 0.7, 0.4];
 const SECTION_KEYS = SECTION_OPACITIES.map((_, i) => `skeleton-section-${i}`);
@@ -8,13 +9,24 @@ const ROW_KEYS_BY_SECTION: readonly (readonly string[])[] = SECTION_OPACITIES.ma
   [0, 1, 2].map((r) => `skeleton-row-${sIdx}-${r}`),
 );
 
-function SkeletonPulse({ pulse, style }: { pulse: Animated.Value; style: StyleProp<ViewStyle> }) {
+function SkeletonPulse({
+  pulse,
+  style,
+  reduceMotion,
+}: {
+  pulse: Animated.Value;
+  style: StyleProp<ViewStyle>;
+  reduceMotion: boolean;
+}) {
   const opacity = pulse.interpolate({
     inputRange: [0, 1],
     outputRange: [0.4, 0.8],
   });
 
-  const pulseStyle = useMemo(() => [style, { opacity }], [style, opacity]);
+  const pulseStyle = useMemo(
+    () => [style, reduceMotion ? { opacity: 0.6 } : { opacity }],
+    [style, opacity, reduceMotion],
+  );
 
   return <Animated.View style={pulseStyle} />;
 }
@@ -23,10 +35,12 @@ function SkeletonSection({
   pulse,
   sectionOpacity,
   sectionIdx,
+  reduceMotion,
 }: {
   pulse: Animated.Value;
   sectionOpacity: number;
   sectionIdx: number;
+  reduceMotion: boolean;
 }) {
   const sectionStyle = useMemo(
     () => [styles.section, { opacity: sectionOpacity }],
@@ -35,17 +49,17 @@ function SkeletonSection({
   return (
     <View style={sectionStyle}>
       <View style={styles.sectionHeader}>
-        <SkeletonPulse pulse={pulse} style={styles.chevron} />
-        <SkeletonPulse pulse={pulse} style={styles.projectIcon} />
-        <SkeletonPulse pulse={pulse} style={styles.sectionTitle} />
+        <SkeletonPulse pulse={pulse} style={styles.chevron} reduceMotion={reduceMotion} />
+        <SkeletonPulse pulse={pulse} style={styles.projectIcon} reduceMotion={reduceMotion} />
+        <SkeletonPulse pulse={pulse} style={styles.sectionTitle} reduceMotion={reduceMotion} />
       </View>
 
       <View style={styles.rows}>
         {ROW_KEYS_BY_SECTION[sectionIdx]?.map((key) => (
           <View key={key} style={styles.row}>
-            <SkeletonPulse pulse={pulse} style={styles.rowDot} />
-            <SkeletonPulse pulse={pulse} style={styles.rowTitle} />
-            <SkeletonPulse pulse={pulse} style={styles.rowBadge} />
+            <SkeletonPulse pulse={pulse} style={styles.rowDot} reduceMotion={reduceMotion} />
+            <SkeletonPulse pulse={pulse} style={styles.rowTitle} reduceMotion={reduceMotion} />
+            <SkeletonPulse pulse={pulse} style={styles.rowBadge} reduceMotion={reduceMotion} />
           </View>
         ))}
       </View>
@@ -55,8 +69,12 @@ function SkeletonSection({
 
 export function SidebarAgentListSkeleton() {
   const pulse = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
+    if (reduceMotion) {
+      return;
+    }
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
@@ -74,7 +92,7 @@ export function SidebarAgentListSkeleton() {
 
     animation.start();
     return () => animation.stop();
-  }, [pulse]);
+  }, [pulse, reduceMotion]);
 
   return (
     <View style={styles.container}>
@@ -84,6 +102,7 @@ export function SidebarAgentListSkeleton() {
           pulse={pulse}
           sectionOpacity={sectionOpacity}
           sectionIdx={sectionIdx}
+          reduceMotion={reduceMotion}
         />
       ))}
     </View>

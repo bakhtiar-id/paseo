@@ -1,4 +1,6 @@
 import type { SidebarWorkspaceEntry } from "@/hooks/sidebar-workspaces-view-model";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 export type StatusBucket = SidebarWorkspaceEntry["statusBucket"];
 
@@ -10,6 +12,7 @@ export const STATUS_BUCKET_ORDER: readonly StatusBucket[] = [
   "done",
 ] as const;
 
+// Default labels — the i18n hook below overrides them with translated strings.
 export const STATUS_BUCKET_LABELS: Record<StatusBucket, string> = {
   needs_input: "Needs input",
   failed: "Failed",
@@ -17,6 +20,20 @@ export const STATUS_BUCKET_LABELS: Record<StatusBucket, string> = {
   running: "Working",
   done: "Done",
 };
+
+export function useStatusBucketLabels(): Record<StatusBucket, string> {
+  const { t } = useTranslation();
+  return useMemo(
+    () => ({
+      needs_input: t("sidebar.statusBuckets.needsInput"),
+      failed: t("sidebar.statusBuckets.failed"),
+      attention: t("sidebar.statusBuckets.attention"),
+      running: t("sidebar.statusBuckets.running"),
+      done: t("sidebar.statusBuckets.done"),
+    }),
+    [t],
+  );
+}
 
 export interface StatusGroup {
   bucket: StatusBucket;
@@ -27,6 +44,7 @@ export interface StatusGroup {
 export function buildStatusGroups(
   workspaces: SidebarWorkspaceEntry[],
   projectNamesByKey: Map<string, string>,
+  labels: Record<StatusBucket, string> = STATUS_BUCKET_LABELS,
 ): StatusGroup[] {
   const bucketRows = new Map<StatusBucket, SidebarWorkspaceEntry[]>();
 
@@ -47,7 +65,7 @@ export function buildStatusGroups(
     if (!rows || rows.length === 0) continue;
 
     rows.sort((a, b) => compareStatusRows(a, b, projectNamesByKey));
-    groups.push({ bucket, label: STATUS_BUCKET_LABELS[bucket], rows });
+    groups.push({ bucket, label: labels[bucket], rows });
   }
 
   return groups;

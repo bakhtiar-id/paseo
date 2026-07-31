@@ -3,6 +3,10 @@ import { isWeb } from "@/constants/platform";
 
 export const FOOTER_HEIGHT = 75;
 
+// Global desktop status bar at the bottom of the window (provider limits, agent
+// counts, host connection). Distinct from FOOTER_HEIGHT, which is the composer.
+export const STATUS_FOOTER_HEIGHT = 25;
+
 // Shared header inner height (excluding safe area insets and border)
 // Used by both agent header (ScreenHeader) and explorer sidebar header
 // This ensures both headers have the same visual height

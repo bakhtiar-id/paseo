@@ -2405,76 +2405,39 @@ async function getCheckoutShortstatUncached(
     }
   }
 
-  const facts = context?.facts;
-  const localBaseRef = facts?.isGit
-    ? facts.resolvedBaseRef
-    : await getResolvedBaseRefForCwd(cwd, context);
-  const currentBranch = facts?.isGit ? facts.currentBranch : await getCurrentBranch(cwd);
-  const comparisonRef = await resolveShortstatComparisonRef({
-    cwd,
-    currentBranch,
-    localBaseRef,
-    facts,
-  });
-  if (!comparisonRef) {
-    return null;
-  }
-
+  // Uncommitted-only semantics: diff the working tree against HEAD. The sidebar
+  // badge reads "what changed right now" — committed branch work is listed in
+  // the commits UI, not here. `diff HEAD` covers staged + unstaged tracked
+  // changes; untracked lines are counted separately. Repos with no commits yet
+  // have no HEAD, so the tracked diff fails and we fall back to untracked-only.
+  let tracked: CheckoutShortstat | null = null;
+  let untrackedAdditions = 0;
   try {
-    const { stdout: mergeBaseOut } = await runGitCommand(["merge-base", "HEAD", comparisonRef], {
-      cwd,
-      envOverlay: READ_ONLY_GIT_ENV,
-    });
-    const mergeBase = mergeBaseOut.trim();
-    if (!mergeBase) {
-      return null;
-    }
-
-    const [{ stdout }, untrackedAdditions] = await Promise.all([
-      runGitCommand(["diff", "--shortstat", mergeBase], {
+    const [{ stdout }, countedUntracked] = await Promise.all([
+      runGitCommand(["diff", "--shortstat", "HEAD"], {
         cwd,
         envOverlay: READ_ONLY_GIT_ENV,
       }),
       countUntrackedAdditions(cwd),
     ]);
-
-    const tracked = parseCheckoutShortstat(stdout);
-
-    if (tracked) {
-      return { additions: tracked.additions + untrackedAdditions, deletions: tracked.deletions };
-    }
-    if (untrackedAdditions > 0) {
-      return { additions: untrackedAdditions, deletions: 0 };
-    }
-    return null;
+    tracked = parseCheckoutShortstat(stdout);
+    untrackedAdditions = countedUntracked;
   } catch {
-    return null;
-  }
-}
-
-async function resolveShortstatComparisonRef(input: {
-  cwd: string;
-  currentBranch: string | null;
-  localBaseRef: string | null;
-  facts?: CheckoutSnapshotFacts | null;
-}): Promise<string | null> {
-  const { cwd, currentBranch, localBaseRef, facts } = input;
-  if (!currentBranch) {
-    return null;
-  }
-
-  if (localBaseRef && currentBranch !== localBaseRef) {
+    // No HEAD (unborn branch) or a broken repo — untracked files still count.
     try {
-      return facts?.isGit && facts.resolvedBaseRef === localBaseRef && facts.comparisonBaseRef
-        ? facts.comparisonBaseRef
-        : await resolveBestComparisonBaseRef(cwd, localBaseRef);
+      untrackedAdditions = await countUntrackedAdditions(cwd);
     } catch {
-      return null;
+      untrackedAdditions = 0;
     }
   }
 
-  const hasOrigin = await doesGitRefExist(cwd, `refs/remotes/origin/${currentBranch}`);
-  return hasOrigin ? `origin/${currentBranch}` : null;
+  if (tracked) {
+    return { additions: tracked.additions + untrackedAdditions, deletions: tracked.deletions };
+  }
+  if (untrackedAdditions > 0) {
+    return { additions: untrackedAdditions, deletions: 0 };
+  }
+  return null;
 }
 
 function getOrLoadCheckoutShortstat(

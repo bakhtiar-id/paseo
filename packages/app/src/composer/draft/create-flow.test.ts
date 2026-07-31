@@ -88,6 +88,47 @@ describe("useDraftAgentCreateFlow", () => {
     expect(onCreateSuccess).toHaveBeenCalledTimes(1);
   });
 
+  it("continues a prepared draft only once when two mounts race", async () => {
+    const attempt: DraftCreateAttempt = {
+      clientMessageId: "msg-prepared",
+      text: "build this",
+      timestamp: new Date("2026-05-25T00:00:00.000Z"),
+    };
+    let releaseCreate!: (value: { agentId: string; result: { id: string } }) => void;
+    const createRequest = vi.fn(
+      () =>
+        new Promise<{ agentId: string; result: { id: string } }>((resolve) => {
+          releaseCreate = resolve;
+        }),
+    );
+    const onCreateSuccess = vi.fn();
+    const { result } = renderHook(() =>
+      useDraftAgentCreateFlow({
+        draftId: "draft-1",
+        getPendingServerId: () => "server-1",
+        initialAttempt: attempt,
+        buildDraftAgent: (currentAttempt) => ({ currentAttempt }),
+        createRequest,
+        onCreateSuccess,
+      }),
+    );
+
+    let firstCreate!: Promise<void>;
+    let duplicateCreate!: Promise<void>;
+    act(() => {
+      firstCreate = result.current.continueCreateFromAttempt({ attempt, cwd: "/repo" });
+      duplicateCreate = result.current.continueCreateFromAttempt({ attempt, cwd: "/repo" });
+    });
+
+    await expect(duplicateCreate).rejects.toThrow("composer.errors.alreadyLoading");
+    await act(async () => {
+      releaseCreate({ agentId: "agent-1", result: { id: "agent-1" } });
+      await firstCreate;
+    });
+    expect(createRequest).toHaveBeenCalledTimes(1);
+    expect(onCreateSuccess).toHaveBeenCalledTimes(1);
+  });
+
   it("allows retrying an empty prompt when the draft still has context attachments", async () => {
     const attachment = {
       kind: "chat_history",

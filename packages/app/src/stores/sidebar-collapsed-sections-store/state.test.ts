@@ -4,6 +4,7 @@ import {
   mergePersistedCollapsedProjects,
   serializeCollapsedProjects,
   setProjectCollapsed,
+  setProjectExpanded,
   togglePinnedCollapsed,
   toggleProjectCollapsed,
   toggleStatusGroupCollapsed,
@@ -14,6 +15,7 @@ function emptyState(): CollapsedProjectsState {
     collapsedProjectKeys: new Set(),
     collapsedStatusGroupKeys: new Set(),
     collapsedPinned: false,
+    expandedProjectKeys: new Set(),
   };
 }
 
@@ -30,17 +32,29 @@ describe("sidebar collapsed projects transitions", () => {
     expect(Array.from(state.collapsedStatusGroupKeys)).toEqual(["running"]);
   });
 
+  it("tracks explicitly expanded idle project keys", () => {
+    let state = emptyState();
+
+    state = setProjectExpanded(state, "project-idle", true);
+    expect(Array.from(state.expandedProjectKeys)).toEqual(["project-idle"]);
+
+    state = setProjectExpanded(state, "project-idle", false);
+    expect(Array.from(state.expandedProjectKeys)).toEqual([]);
+  });
+
   it("serializes collapsed project keys for preference storage", () => {
     const state: CollapsedProjectsState = {
       collapsedProjectKeys: new Set(["project-a", "project-b"]),
       collapsedStatusGroupKeys: new Set(["running"]),
       collapsedPinned: true,
+      expandedProjectKeys: new Set(["project-idle"]),
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
       collapsedProjectKeys: ["project-a", "project-b"],
       collapsedStatusGroupKeys: ["running"],
       collapsedPinned: true,
+      expandedProjectKeys: ["project-idle"],
     });
   });
 

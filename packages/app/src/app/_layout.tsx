@@ -30,6 +30,7 @@ import { QuittingOverlay } from "@/components/quitting-overlay";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { AppDiagnosticHost } from "@/components/app-diagnostic-host";
 import { LeftSidebar } from "@/components/left-sidebar";
+import { StatusFooter } from "@/components/status-footer";
 import { WindowSidebarMenuToggle } from "@/components/headers/menu-header";
 import { SidebarModelProvider } from "@/components/sidebar/sidebar-model";
 import { WorkspacePinShortcutHandler } from "@/components/workspace-pin-shortcut-handler";
@@ -92,6 +93,7 @@ import { queryClient } from "@/data/query-client";
 import {
   getHostRuntimeStore,
   hasConfiguredLocalDaemonOverride,
+  useEarliestOnlineHostServerId,
   useHostRegistryLoaded,
   useHostMutations,
   useHostRuntimeClient,
@@ -277,26 +279,6 @@ function HostSessionManager() {
         <ManagedDaemonSession key={daemon.serverId} daemon={daemon} />
       ))}
     </>
-  );
-}
-
-export function useEarliestOnlineHostServerId(): string | null {
-  const store = getHostRuntimeStore();
-  const subscribe = useCallback(
-    (listener: () => void) => {
-      const unsubscribeAll = store.subscribeAll(listener);
-      const unsubscribeHostList = store.subscribeHostList(listener);
-      return () => {
-        unsubscribeAll();
-        unsubscribeHostList();
-      };
-    },
-    [store],
-  );
-  return useSyncExternalStore(
-    subscribe,
-    () => store.getEarliestOnlineHostServerId(),
-    () => store.getEarliestOnlineHostServerId(),
   );
 }
 
@@ -533,6 +515,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   const surface = (
     <View style={layoutStyles.surfaceFill}>
       {workspaceChrome}
+      <StatusFooterSlot chromeEnabled={chromeEnabled} />
       {!isCompactLayout && appChromeLayout.sidebarToggleOwner === "window" ? (
         <WindowChromeRegion corners="top-left">
           <WindowChromeSafeArea
@@ -571,6 +554,16 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   );
 
   return <CommandCenterProvider>{content}</CommandCenterProvider>;
+}
+
+// The status bar is desktop chrome: hidden on compact layouts and when no host
+// is configured (chromeEnabled false).
+function StatusFooterSlot({ chromeEnabled }: { chromeEnabled: boolean }) {
+  const isCompactLayout = useIsCompactFormFactor();
+  if (isCompactLayout || !chromeEnabled) {
+    return null;
+  }
+  return <StatusFooter />;
 }
 
 function SidebarChrome({

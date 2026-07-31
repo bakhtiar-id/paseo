@@ -6,6 +6,7 @@ import type {
 import {
   buildSidebarProjectRowModel,
   resolveSidebarProjectIconTarget,
+  resolveSidebarProjectTerminalTarget,
 } from "./sidebar-project-row-model";
 
 function workspace(overrides: Partial<SidebarWorkspaceEntry> = {}): SidebarWorkspaceEntry {
@@ -194,6 +195,57 @@ describe("buildSidebarProjectRowModel", () => {
     );
 
     expect(iconTarget).toEqual({ serverId: "host-b", iconWorkingDir: "/repo/b" });
+  });
+
+  it("resolves the project terminal to the root workspace and excludes script terminals", () => {
+    const root = workspace({
+      workspaceDirectory: "/repo-checkout",
+      workspaceKind: "local_checkout",
+      scripts: [
+        {
+          scriptName: "dev",
+          type: "service",
+          hostname: "dev",
+          port: null,
+          proxyUrl: null,
+          lifecycle: "running",
+          health: null,
+          exitCode: null,
+          terminalId: "script-terminal",
+        },
+      ],
+    });
+    const target = resolveSidebarProjectTerminalTarget(
+      project({
+        workspaces: [
+          workspace({
+            workspaceKey: "srv:ws-feature",
+            workspaceId: "ws-feature",
+            workspaceDirectory: "/tmp/feature",
+          }),
+          root,
+        ],
+      }),
+      new Map([
+        [
+          "srv:ws-feature",
+          workspace({
+            workspaceKey: "srv:ws-feature",
+            workspaceId: "ws-feature",
+            workspaceDirectory: "/tmp/feature",
+            workspaceKind: "worktree",
+          }),
+        ],
+        [root.workspaceKey, root],
+      ]),
+    );
+
+    expect(target).toMatchObject({
+      serverId: "srv",
+      workspaceId: "ws-root",
+      workspaceDirectory: "/repo-checkout",
+    });
+    expect(target?.scriptTerminalIds).toEqual(new Set(["script-terminal"]));
   });
 
   it("renders an empty project as an expandable section", () => {

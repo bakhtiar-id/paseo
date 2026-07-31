@@ -16,6 +16,7 @@ import {
 import type { AgentAttachment } from "@getpaseo/protocol/messages";
 
 const EMPTY_STREAM_ITEMS: StreamItem[] = [];
+const inFlightDraftCreates = new Set<string>();
 
 interface CreateAttempt {
   clientMessageId: string;
@@ -66,6 +67,10 @@ function reducer(
 interface CreateRequestResult<TCreateResult> {
   agentId: string | null;
   result: TCreateResult;
+}
+
+function requireCreateClaim(claimed: boolean, message: string): void {
+  if (!claimed) throw new Error(message);
 }
 
 interface SubmitContext {
@@ -166,22 +171,26 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
 
   const runCreateAttempt = useCallback(
     async ({ attempt, cwd }: { attempt: CreateAttempt; cwd: string }) => {
+      if (inFlightDraftCreates.has(draftId)) {
+        throw new Error(t("composer.errors.alreadyLoading"));
+      }
+      inFlightDraftCreates.add(draftId);
       const pendingServerId = getPendingServerId();
       if (!pendingServerId) {
+        inFlightDraftCreates.delete(draftId);
         const error = new Error(t("composer.errors.noHostSelected"));
         dispatch({ type: "DRAFT_SET_ERROR", message: error.message });
         throw error;
       }
 
-      await onBeforeSubmit?.({
-        attempt,
-        text: attempt.text,
-        images: attempt.images,
-        attachments: attempt.attachments,
-        cwd,
-      });
-
       try {
+        await onBeforeSubmit?.({
+          attempt,
+          text: attempt.text,
+          images: attempt.images,
+          attachments: attempt.attachments,
+          cwd,
+        });
         const createResult = await createRequest({
           attempt,
           text: attempt.text,
@@ -215,6 +224,8 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         clearPendingCreateAttempt({ draftId });
         onCreateError?.(resolved);
         throw error;
+      } finally {
+        inFlightDraftCreates.delete(draftId);
       }
     },
     [
@@ -282,18 +293,21 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
       };
 
-      setPendingCreateAttempt({
-        draftId,
-        serverId: pendingServerId,
-        agentId: null,
-        clientMessageId: attempt.clientMessageId,
-        text: attempt.text,
-        timestamp: attempt.timestamp.getTime(),
-        ...(attempt.images && attempt.images.length > 0 ? { images: attempt.images } : {}),
-        ...(attempt.attachments && attempt.attachments.length > 0
-          ? { attachments: attempt.attachments }
-          : {}),
-      });
+      requireCreateClaim(
+        setPendingCreateAttempt({
+          draftId,
+          serverId: pendingServerId,
+          agentId: null,
+          clientMessageId: attempt.clientMessageId,
+          text: attempt.text,
+          timestamp: attempt.timestamp.getTime(),
+          ...(attempt.images && attempt.images.length > 0 ? { images: attempt.images } : {}),
+          ...(attempt.attachments && attempt.attachments.length > 0
+            ? { attachments: attempt.attachments }
+            : {}),
+        }),
+        t("composer.errors.alreadyLoading"),
+      );
 
       dispatch({ type: "SUBMIT", attempt });
       onCreateStart?.();

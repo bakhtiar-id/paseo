@@ -864,7 +864,28 @@ export const ar: TranslationResources = {
       },
     },
   },
+  statusFooter: {
+    agents: "{{count}} وكلاء",
+    active: "{{count}} نشط",
+    done: "{{count}} منتهية",
+    hostsOnline: "{{online}}/{{total}} مضيفون متصلون",
+    context: "السياق {{percentage}}%",
+    updateAvailable: "يتوفر تحديث",
+    limitsUnavailable: "الحدود غير متاحة",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "تفضيلات العرض",
+    displayPreferencesMenu: {
+      groupBy: "التجميع حسب",
+      project: "المشروع",
+      status: "الحالة",
+      filter: "تصفية",
+      allHosts: "كل المضيفين",
+      workspaceTitle: "عنوان مساحة العمل",
+      title: "العنوان",
+      branchName: "اسم الفرع",
+    },
     pinned: {
       title: "المثبتة",
     },
@@ -895,6 +916,17 @@ export const ar: TranslationResources = {
     sections: {
       sessions: "السجل",
       schedules: "الجداول",
+      projects: "المشاريع",
+    },
+    search: {
+      placeholder: "ابحث في المشاريع والوكلاء والملفات",
+    },
+    statusBuckets: {
+      needsInput: "يحتاج إلى إدخال",
+      failed: "فشل",
+      attention: "جاهز للمراجعة",
+      running: "قيد التشغيل",
+      done: "مكتمل",
     },
     worktreeSetup: {
       title: "إعداد البرامج النصية لشجرة العمل",
@@ -905,6 +937,8 @@ export const ar: TranslationResources = {
     project: {
       actions: {
         menu: "إجراءات المشروع",
+        showDone: "إظهار {{count}} منتهية",
+        hideDone: "إخفاء المنتهية",
         openSettings: "افتح إعدادات المشروع",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
@@ -927,6 +961,22 @@ export const ar: TranslationResources = {
         title: "لا توجد مشاريع حتى الآن",
         description: "أضف مشروعًا للبدء",
       },
+    },
+    agents: {
+      menu: "إجراءات الوكيل",
+      archive: "أرشفة المحادثة",
+      markDone: "وضع علامة منتهٍ",
+      unmarkDone: "إلغاء علامة الانتهاء",
+    },
+    workspaces: {
+      showDone: "{{count}} منتهية · إظهار",
+      archiveAllDone: "أرشفة كل المنتهية ({{count}})",
+      doneMenu: "إجراءات المنتهية",
+      hideDone: "{{count}} منتهية · إخفاء",
+    },
+    liveNow: {
+      title: "نشط الآن",
+      empty: "لا يوجد وكلاء قيد التشغيل",
     },
     workspace: {
       status: {

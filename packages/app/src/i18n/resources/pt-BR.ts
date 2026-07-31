@@ -886,7 +886,28 @@ export const ptBR: TranslationResources = {
       },
     },
   },
+  statusFooter: {
+    agents: "{{count}} agentes",
+    active: "{{count}} ativos",
+    done: "{{count}} concluídos",
+    hostsOnline: "{{online}}/{{total}} hosts online",
+    context: "Contexto {{percentage}}%",
+    updateAvailable: "Atualização disponível",
+    limitsUnavailable: "Limites indisponíveis",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "Preferências de exibição",
+    displayPreferencesMenu: {
+      groupBy: "Agrupar por",
+      project: "Projeto",
+      status: "Status",
+      filter: "Filtrar",
+      allHosts: "Todos os hosts",
+      workspaceTitle: "Título do workspace",
+      title: "Título",
+      branchName: "Nome da branch",
+    },
     pinned: {
       title: "Fixados",
     },
@@ -917,6 +938,17 @@ export const ptBR: TranslationResources = {
     sections: {
       sessions: "Histórico",
       schedules: "Agendamentos",
+      projects: "Projetos",
+    },
+    search: {
+      placeholder: "Buscar projetos, agentes, arquivos",
+    },
+    statusBuckets: {
+      needsInput: "Precisa de entrada",
+      failed: "Falhou",
+      attention: "Pronto para revisão",
+      running: "Trabalhando",
+      done: "Concluído",
     },
     worktreeSetup: {
       title: "Configurar scripts de worktree",
@@ -927,6 +959,8 @@ export const ptBR: TranslationResources = {
     project: {
       actions: {
         menu: "Ações do projeto",
+        showDone: "Mostrar {{count}} concluídos",
+        hideDone: "Ocultar concluídos",
         openSettings: "Abrir configurações do projeto",
         openNewWindow: "Abrir em nova janela",
         openNewWindowFailed: "Não foi possível abrir uma nova janela",
@@ -949,6 +983,22 @@ export const ptBR: TranslationResources = {
         title: "Nenhum projeto ainda",
         description: "Adicione um projeto para começar",
       },
+    },
+    agents: {
+      menu: "Ações do agente",
+      archive: "Arquivar conversa",
+      markDone: "Marcar como concluído",
+      unmarkDone: "Desmarcar como concluído",
+    },
+    workspaces: {
+      showDone: "{{count}} concluídos · mostrar",
+      archiveAllDone: "Arquivar todos os concluídos ({{count}})",
+      doneMenu: "Ações dos workspaces concluídos",
+      hideDone: "{{count}} concluídos · ocultar",
+    },
+    liveNow: {
+      title: "Ativos agora",
+      empty: "Nenhum agente em execução",
     },
     workspace: {
       status: {

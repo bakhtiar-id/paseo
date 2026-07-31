@@ -23,7 +23,7 @@ import {
 import { Gesture } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { resolveDesktopSidebarWidth } from "@/components/desktop-sidebar-layout";
 import { HostPicker } from "@/components/hosts/host-picker";
@@ -68,6 +68,7 @@ import type { ShortcutKey } from "@/utils/format-shortcut";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
+import { SidebarLiveNowSection } from "./sidebar/sidebar-live-now";
 
 type SidebarTheme = ReturnType<typeof useUnistyles>["theme"];
 
@@ -643,6 +644,16 @@ function MobileSidebar({
     [insetsTop, insetsBottom, theme.colors.surfaceSidebar],
   );
 
+  const projectsHeaderElement = useMemo(
+    () => (
+      <>
+        <SidebarLiveNowSection />
+        <WorkspacesSectionHeader projectCount={projects.length} onAddProject={handleOpenProject} />
+      </>
+    ),
+    [projects.length, handleOpenProject],
+  );
+
   return (
     <MobilePanelOverlay
       panel="agent-list"
@@ -696,6 +707,7 @@ function MobileSidebar({
           </Pressable>
         </WindowChromeSafeArea>
 
+        <SidebarSearchField />
         {isInitialLoad && !hasActiveHostFilter ? (
           <SidebarAgentListSkeleton />
         ) : (
@@ -714,7 +726,7 @@ function MobileSidebar({
             onWorkspacePress={handleWorkspacePress}
             onAddProject={handleOpenProject}
             parentGestureRef={closeGestureRef}
-            listHeaderComponent={workspacesSectionHeaderElement}
+            listHeaderComponent={projectsHeaderElement}
           />
         )}
 
@@ -821,6 +833,15 @@ function DesktopSidebar({
     () => [styles.sidebarHeaderGroup, ownsTopLeft && styles.sidebarHeaderGroupBelowChrome],
     [ownsTopLeft],
   );
+  const projectsHeaderElement = useMemo(
+    () => (
+      <>
+        <SidebarLiveNowSection />
+        <WorkspacesSectionHeader projectCount={projects.length} onAddProject={handleOpenProject} />
+      </>
+    ),
+    [projects.length, handleOpenProject],
+  );
   return (
     <Animated.View
       accessibilityElementsHidden={!active}
@@ -863,6 +884,7 @@ function DesktopSidebar({
           </View>
         </View>
 
+        <SidebarSearchField />
         {isInitialLoad && !hasActiveHostFilter ? (
           <SidebarAgentListSkeleton />
         ) : (
@@ -879,7 +901,7 @@ function DesktopSidebar({
             isRefreshing={isManualRefresh && isRevalidating}
             onRefresh={handleRefresh}
             onAddProject={handleOpenProject}
-            listHeaderComponent={workspacesSectionHeaderElement}
+            listHeaderComponent={projectsHeaderElement}
           />
         )}
 
@@ -905,12 +927,16 @@ function DesktopSidebar({
   );
 }
 
-function WorkspacesSectionHeader() {
+function WorkspacesSectionHeader({
+  projectCount,
+  onAddProject,
+}: {
+  projectCount: number;
+  onAddProject: () => void;
+}) {
   const { theme } = useUnistyles();
-  const setCommandCenterOpen = useKeyboardShortcutsStore((state) => state.setCommandCenterOpen);
-  const commandCenterKeys = useShortcutKeys("toggle-command-center");
-  const handleSearchPress = useCallback(() => setCommandCenterOpen(true), [setCommandCenterOpen]);
-  const searchButtonStyle = useCallback(
+  const { t } = useTranslation();
+  const addProjectButtonStyle = useCallback(
     ({ hovered = false, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
       styles.workspacesHeaderIconButton,
       (hovered || pressed) && styles.workspacesHeaderIconButtonHovered,
@@ -920,19 +946,24 @@ function WorkspacesSectionHeader() {
 
   return (
     <View style={styles.workspacesSectionHeader}>
-      <Text style={styles.workspacesSectionTitle}>Workspaces</Text>
+      <View style={styles.workspacesSectionTitleGroup}>
+        <Text style={styles.workspacesSectionTitle}>{t("sidebar.sections.projects")}</Text>
+        <View style={styles.workspacesSectionCount} testID="sidebar-project-count">
+          <Text style={styles.workspacesSectionCountText}>{projectCount}</Text>
+        </View>
+      </View>
       <View style={styles.workspacesSectionActions}>
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Open command center"
-              testID="sidebar-command-center-search"
-              style={searchButtonStyle}
-              onPress={handleSearchPress}
+              accessibilityLabel={t("sidebar.actions.addProject")}
+              testID="sidebar-header-add-project"
+              style={addProjectButtonStyle}
+              onPress={onAddProject}
             >
               {({ hovered, pressed }) => (
-                <Search
+                <Plus
                   size={14}
                   color={
                     hovered || pressed ? theme.colors.foreground : theme.colors.foregroundMuted
@@ -942,7 +973,7 @@ function WorkspacesSectionHeader() {
             </Pressable>
           </TooltipTrigger>
           <TooltipContent side="bottom" align="center" offset={8}>
-            <IconTooltipContent label="Search" shortcutKeys={commandCenterKeys} />
+            <IconTooltipContent label={t("sidebar.actions.addProject")} />
           </TooltipContent>
         </Tooltip>
         <Tooltip delayDuration={300}>
@@ -952,7 +983,7 @@ function WorkspacesSectionHeader() {
             </View>
           </TooltipTrigger>
           <TooltipContent side="bottom" align="center" offset={8}>
-            <IconTooltipContent label="Display preferences" />
+            <IconTooltipContent label={t("sidebar.displayPreferences")} />
           </TooltipContent>
         </Tooltip>
       </View>
@@ -960,9 +991,53 @@ function WorkspacesSectionHeader() {
   );
 }
 
-// Stable element so the sidebar list's listHeaderComponent prop keeps identity across
-// renders (WorkspacesSectionHeader takes no props).
-const workspacesSectionHeaderElement = <WorkspacesSectionHeader />;
+// Persistent search field (spec §2.2): a fake input that just opens the command
+// center — it exists so the ⌘K entry point is discoverable.
+const ThemedSearchFieldIcon = withUnistyles(Search);
+const searchFieldIconMapping = (theme: SidebarTheme) => ({
+  color: theme.colors.foregroundMuted,
+});
+
+function SidebarSearchField() {
+  const { t } = useTranslation();
+  const setCommandCenterOpen = useKeyboardShortcutsStore((state) => state.setCommandCenterOpen);
+  const commandCenterKeys = useShortcutKeys("toggle-command-center");
+  const handlePress = useCallback(() => setCommandCenterOpen(true), [setCommandCenterOpen]);
+  const searchFieldStyle = useCallback(
+    ({ hovered = false, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
+      styles.searchField,
+      (hovered || pressed) && styles.searchFieldHovered,
+    ],
+    [],
+  );
+
+  return (
+    <View style={styles.searchFieldWrap}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("sidebar.search.placeholder")}
+        testID="sidebar-command-center-search"
+        style={searchFieldStyle}
+        onPress={handlePress}
+      >
+        {() => (
+          <>
+            <ThemedSearchFieldIcon size={13} uniProps={searchFieldIconMapping} />
+            <Text style={styles.searchFieldPlaceholder} numberOfLines={1}>
+              {t("sidebar.search.placeholder")}
+            </Text>
+            {commandCenterKeys ? (
+              <Shortcut chord={commandCenterKeys} style={styles.searchFieldShortcut} />
+            ) : null}
+          </>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+// Built per sidebar variant so the add-project button and count stay wired to
+// that variant's handlers (see both listHeaderComponent call sites).
 
 // Static styles for Animated.Views — must NOT use Unistyles dynamic theme to
 // avoid the "Unable to find node on an unmounted component" crash when Unistyles
@@ -1000,10 +1075,27 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: theme.spacing[1],
     paddingBottom: theme.spacing[1],
   },
+  workspacesSectionTitleGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
+    minWidth: 0,
+  },
   workspacesSectionTitle: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.xs,
     fontWeight: theme.fontWeight.normal,
+  },
+  workspacesSectionCount: {
+    backgroundColor: theme.colors.surface1,
+    borderRadius: theme.borderRadius.full,
+    paddingHorizontal: theme.spacing[1.5],
+    paddingVertical: 1,
+  },
+  workspacesSectionCountText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: 10,
+    fontVariant: ["tabular-nums"],
   },
   workspacesSectionActions: {
     flexDirection: "row",
@@ -1019,6 +1111,34 @@ const styles = StyleSheet.create((theme) => ({
   },
   workspacesHeaderIconButtonHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,
+  },
+  searchFieldWrap: {
+    paddingHorizontal: theme.spacing[2],
+    paddingTop: theme.spacing[2],
+    paddingBottom: theme.spacing[2],
+  },
+  searchField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
+    height: 30,
+    paddingHorizontal: theme.spacing[2],
+    backgroundColor: theme.colors.surface1,
+    borderRadius: theme.borderRadius.md,
+    userSelect: "none",
+  },
+  searchFieldHovered: {
+    backgroundColor: theme.colors.surface2,
+  },
+  searchFieldPlaceholder: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    flex: 1,
+    minWidth: 0,
+  },
+  searchFieldShortcut: {
+    marginLeft: "auto",
+    flexShrink: 0,
   },
   sidebarContent: {
     flex: 1,

@@ -24,10 +24,10 @@ import { SidebarWorkspaceMenu } from "@/components/sidebar/sidebar-workspace-men
 import {
   SidebarWorkspaceRowFrame,
   SidebarWorkspaceRowContent,
-  SidebarWorkspaceTrailingActionBase,
-  SidebarWorkspaceTrailingActionOverlay,
+  SidebarWorkspaceTrailingActionMenuSlot,
   SidebarWorkspaceTrailingActionSlot,
 } from "@/components/sidebar/sidebar-workspace-row-content";
+import { useStatusBucketLabels } from "@/hooks/sidebar-status-view-model";
 
 function noop() {}
 
@@ -257,12 +257,7 @@ function WorkspaceRowBody({
     drag: drag ?? noop,
     menuController: null,
   });
-  const {
-    role: _dragRole,
-    tabIndex: _dragTabIndex,
-    "aria-roledescription": _dragRoleDescription,
-    ...dragAttributes
-  } = dragHandleProps?.attributes ?? {};
+  const dragAttributes = dragHandleProps?.attributes ?? {};
 
   const handlePress = useCallback(() => {
     if (interaction.didLongPressRef.current) {
@@ -273,6 +268,8 @@ function WorkspaceRowBody({
   }, [interaction.didLongPressRef, onPress]);
 
   const accessibilityState = useMemo(() => ({ selected }), [selected]);
+  const statusBucketLabels = useStatusBucketLabels();
+  const rowAccessibilityLabel = `${workspace.title?.trim() || workspace.name}, ${statusBucketLabels[workspace.statusBucket]}`;
 
   return (
     <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging}>
@@ -289,7 +286,6 @@ function WorkspaceRowBody({
         const workspaceRowStyle = getWorkspaceRowStyle({ isDragging, selected, isHovered });
         return (
           <View
-            {...(draggable ? dragAttributes : {})}
             {...(draggable ? dragHandleProps?.listeners : {})}
             ref={
               draggable ? (dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>) : undefined
@@ -301,7 +297,9 @@ function WorkspaceRowBody({
               disabled={isArchiving}
               aria-selected={selected}
               accessibilityRole="button"
+              accessibilityLabel={rowAccessibilityLabel}
               accessibilityState={accessibilityState}
+              {...(draggable ? dragAttributes : {})}
               style={workspaceRowStyle}
               onPressIn={draggable ? interaction.handlePressIn : undefined}
               onTouchMove={draggable ? interaction.handleTouchMove : undefined}
@@ -321,8 +319,6 @@ function WorkspaceRowBody({
               >
                 <WorkspaceRowTrailingActions
                   workspace={workspace}
-                  isHovered={isHovered}
-                  isTouchPlatform={isTouchPlatform}
                   isCreating={isCreating}
                   showShortcutBadge={showShortcutBadge}
                   shortcutNumber={shortcutNumber}
@@ -347,8 +343,6 @@ function WorkspaceRowBody({
 
 function WorkspaceRowTrailingActions({
   workspace,
-  isHovered,
-  isTouchPlatform,
   isCreating,
   showShortcutBadge,
   shortcutNumber,
@@ -363,8 +357,6 @@ function WorkspaceRowTrailingActions({
   onRename,
 }: {
   workspace: SidebarWorkspaceEntry;
-  isHovered: boolean;
-  isTouchPlatform: boolean;
   isCreating: boolean;
   showShortcutBadge: boolean;
   shortcutNumber: number | null;
@@ -380,43 +372,37 @@ function WorkspaceRowTrailingActions({
 }) {
   const { t } = useTranslation();
   const showShortcut = showShortcutBadge && shortcutNumber !== null;
-  const showKebab = Boolean(onArchive && (isHovered || isTouchPlatform));
-  const showKebabInSlot = showKebab && !showShortcut;
-  const shouldRenderActionSlot = Boolean(onArchive || workspace.diffStat);
-
   return (
     <>
       {isCreating ? (
         <Text style={styles.workspaceCreatingText}>{t("sidebar.workspace.status.creating")}</Text>
       ) : null}
-      {shouldRenderActionSlot ? (
+      {onArchive || workspace.diffStat ? (
         <SidebarWorkspaceTrailingActionSlot>
-          <SidebarWorkspaceTrailingActionBase
-            visible={Boolean(workspace.diffStat && !showKebabInSlot && !showShortcut)}
-          >
-            {workspace.diffStat ? (
-              <DiffStat
-                additions={workspace.diffStat.additions}
-                deletions={workspace.diffStat.deletions}
-              />
-            ) : null}
-          </SidebarWorkspaceTrailingActionBase>
-          <SidebarWorkspaceTrailingActionOverlay visible={showKebabInSlot}>
-            {onArchive ? (
-              <SidebarWorkspaceMenu
-                workspaceKey={workspace.workspaceKey}
-                onCopyPath={onCopyPath}
-                onCopyBranchName={onCopyBranchName}
-                onRename={onRename}
-                onMarkAsRead={onMarkAsRead}
-                onArchive={onArchive}
-                archiveLabel={archiveLabel}
-                archiveStatus={archiveStatus}
-                archivePendingLabel={archivePendingLabel}
-                archiveShortcutKeys={archiveShortcutKeys}
-              />
-            ) : null}
-          </SidebarWorkspaceTrailingActionOverlay>
+          {!showShortcut && workspace.diffStat ? (
+            <DiffStat
+              additions={workspace.diffStat.additions}
+              deletions={workspace.diffStat.deletions}
+            />
+          ) : null}
+          {onArchive ? (
+            <SidebarWorkspaceTrailingActionMenuSlot>
+              {showShortcut ? null : (
+                <SidebarWorkspaceMenu
+                  workspaceKey={workspace.workspaceKey}
+                  onCopyPath={onCopyPath}
+                  onCopyBranchName={onCopyBranchName}
+                  onRename={onRename}
+                  onMarkAsRead={onMarkAsRead}
+                  onArchive={onArchive}
+                  archiveLabel={archiveLabel}
+                  archiveStatus={archiveStatus}
+                  archivePendingLabel={archivePendingLabel}
+                  archiveShortcutKeys={archiveShortcutKeys}
+                />
+              )}
+            </SidebarWorkspaceTrailingActionMenuSlot>
+          ) : null}
         </SidebarWorkspaceTrailingActionSlot>
       ) : null}
     </>
@@ -447,11 +433,12 @@ const styles = StyleSheet.create((theme) => ({
     position: "relative",
   },
   workspaceRow: {
-    minHeight: 36,
+    // Compact density (spec §3): a single-line workspace row is 28px.
+    minHeight: 28,
     marginBottom: theme.spacing[1],
-    paddingVertical: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
     paddingLeft: theme.spacing[2],
-    paddingRight: theme.spacing[3],
+    paddingRight: theme.spacing[2],
     borderRadius: theme.borderRadius.lg,
     flexDirection: "column",
     alignItems: "stretch",

@@ -823,10 +823,12 @@ async function createMultiplicityWorkspace(input: {
   const checkoutRequest = isWorktree
     ? resolveCheckoutRequest(input.selectedItem, input.currentBranch)
     : undefined;
-  const firstAgentContext = buildFirstAgentContext({
-    prompt: input.prompt,
-    attachments: input.attachments,
-  });
+  const firstAgentContext = input.withInitialAgent
+    ? buildFirstAgentContext({
+        prompt: input.prompt,
+        attachments: input.attachments,
+      })
+    : undefined;
   const payload = await input.client.createWorkspace({
     source: isWorktree
       ? {
@@ -949,7 +951,7 @@ async function runCreateChatAgent(input: CreateChatAgentInput): Promise<void> {
     cwd,
     prompt: text,
     attachments: workspaceNamingAttachments,
-    withInitialAgent: true,
+    withInitialAgent: false,
   });
   const initialSetup = buildWorkspaceDraftSetupForCreatedWorkspace({
     forkDraftSetup: input.forkDraftSetup,
@@ -1860,6 +1862,7 @@ export function NewWorkspaceScreen({
       cwd: string;
       prompt: string;
       attachments: AgentAttachment[];
+      withInitialAgent: boolean;
     }): CreatePaseoWorktreeInput => {
       if (!selectedProject) {
         throw new Error("Choose a project");
@@ -1868,7 +1871,7 @@ export function NewWorkspaceScreen({
         throw new Error("Choose a host for this project");
       }
       const checkoutRequest = resolveCheckoutRequest(selectedItem, currentBranch);
-      const firstAgentContext = buildFirstAgentContext(input);
+      const firstAgentContext = input.withInitialAgent ? buildFirstAgentContext(input) : undefined;
 
       return {
         cwd: selectedSourceDirectory,

@@ -18,6 +18,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { stripHostWorkspaceRouteEchoSearchFromBrowserUrlAfterCommit } from "@/utils/host-route-browser";
 import { navigateToHostWorkspaceRoute } from "@/navigation/workspace-route-navigation";
+import { preparePaneForTarget } from "@/utils/workspace-navigation";
 
 export type { ActiveWorkspaceSelection } from "@/stores/last-workspace-selection";
 export type { NavigateToWorkspaceInput } from "./navigation";
@@ -38,6 +39,7 @@ function navigateDeps(): NavigateToWorkspaceDeps {
       useSessionStore.getState().sessions[serverId]?.agents.values() ?? [],
     openTabFocused: (workspaceKey, target) =>
       useWorkspaceLayoutStore.getState().openTabFocused(workspaceKey, target),
+    preparePaneForTarget,
     pinAgent: (workspaceKey, agentId) =>
       useWorkspaceLayoutStore.getState().pinAgent(workspaceKey, agentId),
     rememberLastWorkspace: (selection) => lastWorkspaceSelectionStore.remember(selection),

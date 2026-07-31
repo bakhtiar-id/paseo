@@ -1,8 +1,9 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, Text, View, type GestureResponderEvent, type ViewStyle } from "react-native";
+import { Pressable, Text, View, type GestureResponderEvent } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { baseColors } from "@/styles/theme";
 import {
   CircleAlert,
   ExternalLink,
@@ -21,9 +22,10 @@ import type { Theme } from "@/styles/theme";
 import type { PrHint } from "@/git/use-pr-status-query";
 import { getForgePresentation, normalizeForge } from "@/git/forge";
 import { ForgeBrandIcon } from "@/git/forge-icon";
-import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
-import { isEmphasizedStatusDotBucket } from "@/utils/status-dot-color";
+import { getStatusDotBaseColor, isEmphasizedStatusDotBucket } from "@/utils/status-dot-color";
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
+import { useStatusBucketLabels } from "@/hooks/sidebar-status-view-model";
+import { PulsingDot, PulsingHalo } from "@/components/ui/pulsing-dot";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sidebar-workspace-title";
 
@@ -110,7 +112,7 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   isCreating?: boolean;
   shortcutNumber?: number | null;
   showShortcutBadge?: boolean;
-  /** Keep the empty leading slot when the workspace has no active status. */
+  /** Show the workspace-kind icon when the workspace has no active status. */
   reserveIdleStatusIndicatorSpace?: boolean;
   children?: ReactNode;
 }) {
@@ -170,10 +172,11 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
 });
 
 function WorkspaceScriptIcon({ kind }: { kind: SidebarWorkspaceScriptIconKind }) {
+  const { t } = useTranslation();
   return (
     <View
       style={styles.workspaceTitleAccessory}
-      accessibilityLabel="Scripts available"
+      accessibilityLabel={t("sidebar.workspace.status.scriptsAvailable")}
       testID={kind === "service" ? "workspace-globe-icon" : "workspace-terminal-icon"}
     >
       {kind === "service" ? (
@@ -196,11 +199,17 @@ function WorkspaceStatusIndicator({
   loading?: boolean;
   reserveIdleSpace?: boolean;
 }) {
+  const statusBucketLabels = useStatusBucketLabels();
+  const statusLabel = statusBucketLabels[bucket];
   const shouldShowSyncedLoader = shouldRenderSyncedStatusLoader({ bucket });
 
   if (loading) {
     return (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-loading">
+      <View
+        style={styles.workspaceStatusDot}
+        accessibilityLabel={statusBucketLabels.running}
+        testID="workspace-status-indicator-loading"
+      >
         <ThemedLoadingSpinner size={8} uniProps={foregroundMutedColorMapping} />
       </View>
     );
@@ -208,7 +217,11 @@ function WorkspaceStatusIndicator({
 
   if (shouldShowSyncedLoader) {
     return (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-running">
+      <View
+        style={styles.workspaceStatusDot}
+        accessibilityLabel={statusLabel}
+        testID="workspace-status-indicator-running"
+      >
         <ThemedSyncedLoader size={11} uniProps={syncedLoaderColorMapping} />
       </View>
     );
@@ -216,7 +229,12 @@ function WorkspaceStatusIndicator({
 
   if (bucket === "needs_input") {
     return (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-needs_input">
+      <View
+        style={styles.workspaceStatusDot}
+        accessibilityLabel={statusLabel}
+        testID="workspace-status-indicator-needs_input"
+      >
+        <PulsingHalo color={baseColors.amber[500]} size={14} style={styles.needsInputHalo} />
         <ThemedCircleAlert size={14} uniProps={amberColorMapping} />
       </View>
     );
@@ -224,16 +242,18 @@ function WorkspaceStatusIndicator({
 
   if (bucket === "attention") {
     return (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-attention">
-        <View style={styles.standaloneStatusDot} />
+      <View
+        style={styles.workspaceStatusDot}
+        accessibilityLabel={statusLabel}
+        testID="workspace-status-indicator-attention"
+      >
+        <PulsingDot color={baseColors.green[500]} size={8} />
       </View>
     );
   }
 
-  if (bucket === "done") {
-    return reserveIdleSpace ? (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-done" />
-    ) : null;
+  if (bucket === "done" && !reserveIdleSpace) {
+    return null;
   }
 
   let KindIcon: typeof ThemedMonitor;
@@ -241,7 +261,7 @@ function WorkspaceStatusIndicator({
   else if (workspaceKind === "worktree") KindIcon = ThemedFolderGit2;
   else KindIcon = ThemedFolder;
 
-  const dotColorStyle = getStatusDotColorStyle(bucket);
+  const dotColor = getStatusDotBaseColor(bucket);
   const statusDotSize = isEmphasizedStatusDotBucket(bucket)
     ? EMPHASIZED_STATUS_DOT_SIZE
     : DEFAULT_STATUS_DOT_SIZE;
@@ -250,42 +270,22 @@ function WorkspaceStatusIndicator({
       ? EMPHASIZED_STATUS_DOT_OFFSET
       : DEFAULT_STATUS_DOT_OFFSET;
   return (
-    <View style={styles.workspaceStatusDot} testID={`workspace-status-indicator-${bucket}`}>
+    <View
+      style={styles.workspaceStatusDot}
+      accessibilityLabel={statusLabel}
+      testID={`workspace-status-indicator-${bucket}`}
+    >
       <KindIcon size={14} uniProps={foregroundMutedColorMapping} />
-      {dotColorStyle ? (
-        <StatusDotOverlay
-          dotColorStyle={dotColorStyle}
+      {dotColor ? (
+        <PulsingDot
+          color={dotColor}
           size={statusDotSize}
-          offset={statusDotOffset}
+          bordered
+          style={[styles.statusDotOverlayBase, { right: statusDotOffset, bottom: statusDotOffset }]}
         />
       ) : null}
     </View>
   );
-}
-
-function StatusDotOverlay({
-  dotColorStyle,
-  size,
-  offset,
-}: {
-  dotColorStyle: ViewStyle;
-  size: number;
-  offset: number;
-}) {
-  const overlayStyle = useMemo(
-    () => [
-      styles.statusDotOverlay,
-      dotColorStyle,
-      {
-        width: size,
-        height: size,
-        right: offset,
-        bottom: offset,
-      },
-    ],
-    [dotColorStyle, offset, size],
-  );
-  return <View style={overlayStyle} />;
 }
 
 function PrBadge({ hint }: { hint: PrHint }) {
@@ -365,21 +365,6 @@ function getPrIconUniMapping(state: PrHint["state"]) {
   }
 }
 
-function getStatusDotColorStyle(bucket: SidebarStateBucket) {
-  switch (bucket) {
-    case "needs_input":
-      return styles.statusDotNeedsInput;
-    case "failed":
-      return styles.statusDotFailed;
-    case "running":
-      return styles.statusDotRunning;
-    case "attention":
-      return styles.statusDotAttention;
-    case "done":
-      return null;
-  }
-}
-
 const prBadgeStyles = StyleSheet.create((theme) => ({
   badge: {
     flexDirection: "row",
@@ -439,21 +424,36 @@ export const sidebarWorkspaceRowStyles = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.medium,
     lineHeight: 14,
   },
-  hidden: { opacity: 0 },
-  trailingActionSlot: {
-    position: "relative",
-    minWidth: 18,
-    minHeight: 20,
-    flexShrink: 0,
-    alignItems: "flex-end",
-    justifyContent: "flex-start",
-  },
-  trailingActionOverlay: {
+  selectionAccentBar: {
     position: "absolute",
-    top: 0,
-    right: 0,
+    left: 1,
+    top: 5,
+    bottom: 5,
+    width: 2,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primary,
+    zIndex: 1,
+  },
+  trailingActionSlot: {
+    // Touch-mode layout: diff stat and the menu sit side by side, always
+    // visible. The menu keeps a fixed 24px column so the diff never shifts.
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    flexShrink: 0,
+    justifyContent: "flex-end",
+  },
+  trailingActionMenuSlot: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
 }));
+
+export function SidebarSelectionAccentBar() {
+  return <View pointerEvents="none" style={sidebarWorkspaceRowStyles.selectionAccentBar} />;
+}
 
 export function SidebarWorkspaceShortcutBadge({ number }: { number: number }) {
   return (
@@ -467,26 +467,10 @@ export function SidebarWorkspaceTrailingActionSlot({ children }: { children: Rea
   return <View style={sidebarWorkspaceRowStyles.trailingActionSlot}>{children}</View>;
 }
 
-export function SidebarWorkspaceTrailingActionBase({
-  visible,
-  children,
-}: {
-  visible: boolean;
-  children: ReactNode;
-}) {
-  if (!children) return null;
-  return <View style={visible ? undefined : sidebarWorkspaceRowStyles.hidden}>{children}</View>;
-}
-
-export function SidebarWorkspaceTrailingActionOverlay({
-  visible,
-  children,
-}: {
-  visible: boolean;
-  children: ReactNode;
-}) {
-  if (!visible || !children) return null;
-  return <View style={sidebarWorkspaceRowStyles.trailingActionOverlay}>{children}</View>;
+// Fixed 24px column for the workspace row's menu trigger; keeps the diff stat
+// stable whether the menu is present or not.
+export function SidebarWorkspaceTrailingActionMenuSlot({ children }: { children: ReactNode }) {
+  return <View style={sidebarWorkspaceRowStyles.trailingActionMenuSlot}>{children}</View>;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -530,16 +514,12 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  statusDotOverlay: {
+  statusDotOverlayBase: {
     position: "absolute",
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1,
   },
-  standaloneStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.palette.green[500],
+  needsInputHalo: {
+    top: 3,
+    left: 1,
   },
   workspaceBranchText: {
     color: theme.colors.foreground,
@@ -577,21 +557,5 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
     marginTop: theme.spacing[1],
-  },
-  statusDotNeedsInput: {
-    backgroundColor: theme.colors.palette.amber[500],
-    borderColor: theme.colors.surface0,
-  },
-  statusDotFailed: {
-    backgroundColor: theme.colors.palette.red[500],
-    borderColor: theme.colors.surface0,
-  },
-  statusDotRunning: {
-    backgroundColor: theme.colors.palette.blue[500],
-    borderColor: theme.colors.surface0,
-  },
-  statusDotAttention: {
-    backgroundColor: theme.colors.palette.green[500],
-    borderColor: theme.colors.surface0,
   },
 }));

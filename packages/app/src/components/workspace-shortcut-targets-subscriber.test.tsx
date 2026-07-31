@@ -80,6 +80,9 @@ describe("WorkspaceShortcutTargetsSubscriber", () => {
     });
     useSidebarCollapsedSectionsStore.setState({
       collapsedProjectKeys: new Set(),
+      // Keep fixtures expanded: projects with no live agents default-collapse
+      // now, which is not what these tests exercise.
+      expandedProjectKeys: new Set(["project-1", "project-2"]),
     });
     useSidebarOrderStore.setState({
       projectOrder: [],

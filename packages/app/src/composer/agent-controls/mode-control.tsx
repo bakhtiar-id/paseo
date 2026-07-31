@@ -48,7 +48,7 @@ interface ModeIconProps {
   color?: string;
 }
 
-const MODE_ICONS: Record<string, ComponentType<ModeIconProps>> = {
+export const MODE_ICONS: Record<string, ComponentType<ModeIconProps>> = {
   Bot,
   Shield,
   ShieldCheck,

@@ -886,7 +886,28 @@ export const ru: TranslationResources = {
       },
     },
   },
+  statusFooter: {
+    agents: "{{count}} агентов",
+    active: "{{count}} активных",
+    done: "{{count}} завершено",
+    hostsOnline: "{{online}}/{{total}} хостов в сети",
+    context: "Контекст {{percentage}}%",
+    updateAvailable: "Доступно обновление",
+    limitsUnavailable: "Лимиты недоступны",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "Настройки отображения",
+    displayPreferencesMenu: {
+      groupBy: "Группировать по",
+      project: "Проект",
+      status: "Статус",
+      filter: "Фильтр",
+      allHosts: "Все хосты",
+      workspaceTitle: "Название рабочего пространства",
+      title: "Название",
+      branchName: "Имя ветки",
+    },
     pinned: {
       title: "Закреплённые",
     },
@@ -917,6 +938,17 @@ export const ru: TranslationResources = {
     sections: {
       sessions: "История",
       schedules: "Расписания",
+      projects: "Проекты",
+    },
+    search: {
+      placeholder: "Поиск проектов, агентов и файлов",
+    },
+    statusBuckets: {
+      needsInput: "Требуется ввод",
+      failed: "Ошибка",
+      attention: "Готово к проверке",
+      running: "В работе",
+      done: "Готово",
     },
     worktreeSetup: {
       title: "Настройка сценариев рабочего дерева",
@@ -927,6 +959,8 @@ export const ru: TranslationResources = {
     project: {
       actions: {
         menu: "Действия проекта",
+        showDone: "Показать {{count}} завершённых",
+        hideDone: "Скрыть завершённые",
         openSettings: "Открыть настройки проекта",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
@@ -949,6 +983,22 @@ export const ru: TranslationResources = {
         title: "Пока нет проектов",
         description: "Добавьте проект, чтобы начать",
       },
+    },
+    agents: {
+      menu: "Действия агента",
+      archive: "Архивировать чат",
+      markDone: "Отметить завершённым",
+      unmarkDone: "Снять отметку о завершении",
+    },
+    workspaces: {
+      showDone: "{{count}} завершено · показать",
+      archiveAllDone: "Архивировать все завершённые ({{count}})",
+      doneMenu: "Действия завершённых workspace",
+      hideDone: "{{count}} завершено · скрыть",
+    },
+    liveNow: {
+      title: "Активные сейчас",
+      empty: "Нет активных агентов",
     },
     workspace: {
       status: {

@@ -556,17 +556,14 @@ export function WorkspaceDraftAgentTab({
   );
   const autoSubmitKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!isReadyForPendingAutoSubmit) {
+    if (!isReadyForPendingAutoSubmit || !pendingAutoSubmit) {
       return;
     }
     const submitKey = `${serverId}:${workspaceId}:${draftId}`;
     if (autoSubmitKeyRef.current === submitKey) {
       return;
     }
-    const submission = consumePendingAutoSubmit({ serverId, workspaceId, draftId });
-    if (!submission) {
-      return;
-    }
+    const submission = pendingAutoSubmit;
     autoSubmitKeyRef.current = submitKey;
     setDraftText("");
     setDraftAttachments([]);
@@ -584,11 +581,15 @@ export function WorkspaceDraftAgentTab({
           attachments: submission.attachments,
           cwd: submission.cwd,
         });
-    void createPromise.catch(() => {
-      setDraftText(submission.text);
-      setDraftAttachments(composerWorkspaceAttachment.userAttachmentsOnly(submission.attachments));
-      autoSubmitKeyRef.current = null;
-    });
+    void createPromise
+      .finally(() => consumePendingAutoSubmit({ serverId, workspaceId, draftId }))
+      .catch(() => {
+        setDraftText(submission.text);
+        setDraftAttachments(
+          composerWorkspaceAttachment.userAttachmentsOnly(submission.attachments),
+        );
+        autoSubmitKeyRef.current = null;
+      });
   }, [
     continueCreateFromAttempt,
     consumePendingAutoSubmit,
@@ -596,6 +597,7 @@ export function WorkspaceDraftAgentTab({
     handleCreateFromInput,
     initialCreateAttempt,
     isReadyForPendingAutoSubmit,
+    pendingAutoSubmit,
     serverId,
     setDraftAttachments,
     setDraftText,

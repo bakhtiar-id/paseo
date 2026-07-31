@@ -1,8 +1,18 @@
-import type { SidebarProjectEntry } from "@/hooks/use-sidebar-workspaces-list";
+import type {
+  SidebarProjectEntry,
+  SidebarWorkspaceEntry,
+} from "@/hooks/use-sidebar-workspaces-list";
 
 export interface SidebarProjectHostTarget {
   serverId: string;
   iconWorkingDir: string;
+}
+
+export interface SidebarProjectTerminalTarget {
+  serverId: string;
+  workspaceId: string;
+  workspaceDirectory: string;
+  scriptTerminalIds: ReadonlySet<string>;
 }
 
 export type SidebarProjectTrailingAction =
@@ -38,6 +48,35 @@ export function resolveSidebarProjectIconTarget(
     if (target) {
       return target;
     }
+  }
+  return null;
+}
+
+export function resolveSidebarProjectTerminalTarget(
+  project: SidebarProjectEntry,
+  workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>,
+): SidebarProjectTerminalTarget | null {
+  for (const host of project.hosts) {
+    const entries = project.workspaces
+      .map((workspace) => workspaceEntriesByKey.get(workspace.workspaceKey))
+      .filter((entry) => entry?.serverId === host.serverId);
+    const entry =
+      entries.find((candidate) => candidate?.workspaceDirectory === host.iconWorkingDir) ??
+      entries.find(
+        (candidate) =>
+          candidate?.workspaceKind === "local_checkout" ||
+          candidate?.workspaceKind === "directory" ||
+          candidate?.workspaceKind === "checkout",
+      );
+    if (!entry?.workspaceDirectory) continue;
+    return {
+      serverId: entry.serverId,
+      workspaceId: entry.workspaceId,
+      workspaceDirectory: entry.workspaceDirectory,
+      scriptTerminalIds: new Set(
+        entry.scripts.flatMap((script) => (script.terminalId ? [script.terminalId] : [])),
+      ),
+    };
   }
   return null;
 }

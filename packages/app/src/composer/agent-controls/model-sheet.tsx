@@ -36,7 +36,7 @@ interface CompactModelSheetProps {
   children: ReactNode;
 }
 
-function shortModelLabel(label: string): string {
+export function shortModelLabel(label: string): string {
   const separatorIndex = label.lastIndexOf("/");
   return separatorIndex === -1 ? label : label.slice(separatorIndex + 1);
 }

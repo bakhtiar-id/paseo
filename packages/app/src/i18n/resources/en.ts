@@ -874,7 +874,28 @@ export const en = {
       },
     },
   },
+  statusFooter: {
+    agents: "{{count}} agents",
+    active: "{{count}} active",
+    done: "{{count}} done",
+    hostsOnline: "{{online}}/{{total}} hosts online",
+    context: "Context {{percentage}}%",
+    updateAvailable: "Update available",
+    limitsUnavailable: "Limits unavailable",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "Display preferences",
+    displayPreferencesMenu: {
+      groupBy: "Group by",
+      project: "Project",
+      status: "Status",
+      filter: "Filter",
+      allHosts: "All hosts",
+      workspaceTitle: "Workspace title",
+      title: "Title",
+      branchName: "Branch name",
+    },
     pinned: {
       title: "Pinned",
     },
@@ -905,6 +926,17 @@ export const en = {
     sections: {
       sessions: "History",
       schedules: "Schedules",
+      projects: "Projects",
+    },
+    search: {
+      placeholder: "Search projects, agents, files",
+    },
+    statusBuckets: {
+      needsInput: "Needs input",
+      failed: "Failed",
+      attention: "Ready to review",
+      running: "Working",
+      done: "Done",
     },
     worktreeSetup: {
       title: "Set up worktree scripts",
@@ -915,6 +947,8 @@ export const en = {
     project: {
       actions: {
         menu: "Project actions",
+        showDone: "Show {{count}} done workspaces",
+        hideDone: "Hide done workspaces",
         openSettings: "Open project settings",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
@@ -937,6 +971,22 @@ export const en = {
         title: "No projects yet",
         description: "Add a project to get started",
       },
+    },
+    agents: {
+      menu: "Agent actions",
+      archive: "Archive chat",
+      markDone: "Mark as done",
+      unmarkDone: "Unmark as done",
+    },
+    workspaces: {
+      showDone: "{{count}} done · show",
+      archiveAllDone: "Archive all done ({{count}})",
+      doneMenu: "Done workspace actions",
+      hideDone: "{{count}} done · hide",
+    },
+    liveNow: {
+      title: "Live now",
+      empty: "No agents running",
     },
     workspace: {
       status: {

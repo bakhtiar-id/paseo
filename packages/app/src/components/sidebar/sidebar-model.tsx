@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, type ReactNode } from "react";
+import React, { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import {
   useSidebarWorkspacesList,
   type SidebarWorkspaceEntry,
@@ -6,9 +6,17 @@ import {
 } from "@/hooks/use-sidebar-workspaces-list";
 import { useSidebarWorkspaceEntries } from "@/hooks/use-sidebar-workspace-entries";
 import type { StatusGroup } from "@/hooks/sidebar-status-view-model";
+import { useStatusBucketLabels } from "@/hooks/sidebar-status-view-model";
 import { usePinnedSidebarKeys, type PinnedSidebarGroups } from "@/hooks/use-sidebar-pins";
 import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
 import { useSidebarViewStore, type SidebarGroupMode } from "@/stores/sidebar-view-store";
+import { useSessionStore } from "@/stores/session-store";
+import { useAgentDoneStore } from "@/stores/agent-done-store";
+import { useShallow } from "zustand/shallow";
+import {
+  resolveEffectiveCollapsedProjectKeys,
+  resolveLiveProjectKeys,
+} from "@/components/sidebar/sidebar-project-collapse";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
 import { buildSidebarProjection } from "./sidebar-projection";
 
@@ -40,19 +48,58 @@ export function SidebarModelProvider({
   const collapsedStatusGroupKeys = useSidebarCollapsedSectionsStore(
     (state) => state.collapsedStatusGroupKeys,
   );
-  const pinnedCollapsed = useSidebarCollapsedSectionsStore((state) => state.collapsedPinned);
-  const toggleProjectCollapsed = useSidebarCollapsedSectionsStore(
-    (state) => state.toggleProjectCollapsed,
+  const expandedProjectKeys = useSidebarCollapsedSectionsStore(
+    (state) => state.expandedProjectKeys,
   );
+  const setProjectCollapsed = useSidebarCollapsedSectionsStore(
+    (state) => state.setProjectCollapsed,
+  );
+  const setProjectExpanded = useSidebarCollapsedSectionsStore((state) => state.setProjectExpanded);
+  const pinnedCollapsed = useSidebarCollapsedSectionsStore((state) => state.collapsedPinned);
   const isStatusMode = groupMode === "status";
+  const manualDoneKeys = useAgentDoneStore((state) => state.manuallyDoneAgentKeys);
   const workspaceEntriesByKey = useSidebarWorkspaceEntries(
     list.workspacePlacements,
     active !== false || isStatusMode,
+  );
+
+  // Projects with at least one non-done, non-archived agent stay expanded by
+  // default; everything else starts collapsed until the user expands it.
+  const liveProjectKeys = useSessionStore(
+    useShallow(
+      (state) =>
+        new Set([...resolveLiveProjectKeys(state.sessions, list.projects, manualDoneKeys)].sort()),
+    ),
+  );
+
+  const effectiveCollapsedProjectKeys = useMemo(
+    () =>
+      resolveEffectiveCollapsedProjectKeys({
+        collapsedProjectKeys,
+        expandedProjectKeys,
+        liveProjectKeys,
+        projects: list.projects,
+      }),
+    [collapsedProjectKeys, expandedProjectKeys, liveProjectKeys, list.projects],
+  );
+
+  const toggleProjectCollapsed = useCallback(
+    (projectKey: string) => {
+      if (effectiveCollapsedProjectKeys.has(projectKey)) {
+        setProjectCollapsed(projectKey, false);
+        setProjectExpanded(projectKey, true);
+      } else {
+        setProjectCollapsed(projectKey, true);
+        setProjectExpanded(projectKey, false);
+      }
+    },
+    [effectiveCollapsedProjectKeys, setProjectCollapsed, setProjectExpanded],
   );
   const projectionWorkspaceEntriesByKey = isStatusMode
     ? workspaceEntriesByKey
     : EMPTY_WORKSPACE_ENTRIES;
   const pinnedKeys = usePinnedSidebarKeys(list.projects);
+  const statusBucketLabels = useStatusBucketLabels();
   const projection = useMemo(
     () =>
       buildSidebarProjection({
@@ -62,11 +109,12 @@ export function SidebarModelProvider({
         projectNamesByKey: list.projectNamesByKey,
         groupMode,
         pinnedCollapsed,
-        collapsedProjectKeys,
+        collapsedProjectKeys: effectiveCollapsedProjectKeys,
         collapsedStatusGroupKeys,
+        statusBucketLabels,
       }),
     [
-      collapsedProjectKeys,
+      effectiveCollapsedProjectKeys,
       collapsedStatusGroupKeys,
       groupMode,
       list.projectNamesByKey,
@@ -74,6 +122,7 @@ export function SidebarModelProvider({
       pinnedCollapsed,
       pinnedKeys,
       projectionWorkspaceEntriesByKey,
+      statusBucketLabels,
     ],
   );
   const value = useMemo(
@@ -83,12 +132,12 @@ export function SidebarModelProvider({
       groupMode,
       statusGroups: projection.statusGroups,
       pinnedGroups: projection.pinnedGroups,
-      collapsedProjectKeys,
+      collapsedProjectKeys: effectiveCollapsedProjectKeys,
       toggleProjectCollapsed,
       shortcutModel: projection.shortcutModel,
     }),
     [
-      collapsedProjectKeys,
+      effectiveCollapsedProjectKeys,
       groupMode,
       list,
       projection,

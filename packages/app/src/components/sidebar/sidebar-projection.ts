@@ -1,4 +1,8 @@
-import { buildStatusGroups, type StatusGroup } from "@/hooks/sidebar-status-view-model";
+import {
+  buildStatusGroups,
+  type StatusBucket,
+  type StatusGroup,
+} from "@/hooks/sidebar-status-view-model";
 import {
   splitPinnedSidebarGroups,
   type PinnedSidebarGroups,
@@ -30,6 +34,7 @@ export function buildSidebarProjection(input: {
   pinnedCollapsed: boolean;
   collapsedProjectKeys: ReadonlySet<string>;
   collapsedStatusGroupKeys: ReadonlySet<string>;
+  statusBucketLabels?: Record<StatusBucket, string>;
 }): SidebarProjection {
   const pinnedGroups = splitPinnedSidebarGroups({
     projects: input.projects,
@@ -43,6 +48,7 @@ export function buildSidebarProjection(input: {
             (workspace) => !pinnedWorkspaceKeys.has(workspace.workspaceKey),
           ),
           input.projectNamesByKey,
+          input.statusBucketLabels,
         )
       : [];
 

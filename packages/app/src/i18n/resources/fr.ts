@@ -894,7 +894,28 @@ export const fr: TranslationResources = {
       },
     },
   },
+  statusFooter: {
+    agents: "{{count}} agents",
+    active: "{{count}} actifs",
+    done: "{{count}} terminés",
+    hostsOnline: "{{online}}/{{total}} hôtes en ligne",
+    context: "Contexte {{percentage}} %",
+    updateAvailable: "Mise à jour disponible",
+    limitsUnavailable: "Limites indisponibles",
+    moreProviders: "+{{count}}",
+  },
   sidebar: {
+    displayPreferences: "Préférences d'affichage",
+    displayPreferencesMenu: {
+      groupBy: "Grouper par",
+      project: "Projet",
+      status: "Statut",
+      filter: "Filtrer",
+      allHosts: "Tous les hôtes",
+      workspaceTitle: "Titre de l’espace de travail",
+      title: "Titre",
+      branchName: "Nom de la branche",
+    },
     pinned: {
       title: "Épinglés",
     },
@@ -925,6 +946,17 @@ export const fr: TranslationResources = {
     sections: {
       sessions: "Historique",
       schedules: "Planifications",
+      projects: "Projets",
+    },
+    search: {
+      placeholder: "Rechercher projets, agents, fichiers",
+    },
+    statusBuckets: {
+      needsInput: "Action requise",
+      failed: "Échec",
+      attention: "Prêt pour revue",
+      running: "En cours",
+      done: "Terminé",
     },
     worktreeSetup: {
       title: "Configurer les scripts d'arbre de travail",
@@ -935,6 +967,8 @@ export const fr: TranslationResources = {
     project: {
       actions: {
         menu: "Actions du projet",
+        showDone: "Afficher {{count}} terminés",
+        hideDone: "Masquer les terminés",
         openSettings: "Ouvrir les paramètres du projet",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
@@ -957,6 +991,22 @@ export const fr: TranslationResources = {
         title: "Aucun projet pour l'instant",
         description: "Ajoutez un projet pour commencer",
       },
+    },
+    agents: {
+      menu: "Actions de l'agent",
+      archive: "Archiver la conversation",
+      markDone: "Marquer comme terminé",
+      unmarkDone: "Retirer la marque terminé",
+    },
+    workspaces: {
+      showDone: "{{count}} terminés · afficher",
+      archiveAllDone: "Archiver tous les terminés ({{count}})",
+      doneMenu: "Actions des workspaces terminés",
+      hideDone: "{{count}} terminés · masquer",
+    },
+    liveNow: {
+      title: "Actifs maintenant",
+      empty: "Aucun agent en cours",
     },
     workspace: {
       status: {
