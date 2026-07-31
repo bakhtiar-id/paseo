@@ -43,7 +43,7 @@ export interface StatusGroup {
 
 export function buildStatusGroups(
   workspaces: SidebarWorkspaceEntry[],
-  projectNamesByKey: Map<string, string>,
+  projectNamesByViewKey: Map<string, string>,
   labels: Record<StatusBucket, string> = STATUS_BUCKET_LABELS,
 ): StatusGroup[] {
   const bucketRows = new Map<StatusBucket, SidebarWorkspaceEntry[]>();
@@ -64,7 +64,7 @@ export function buildStatusGroups(
     const rows = bucketRows.get(bucket);
     if (!rows || rows.length === 0) continue;
 
-    rows.sort((a, b) => compareStatusRows(a, b, projectNamesByKey));
+    rows.sort((a, b) => compareStatusRows(a, b, projectNamesByViewKey));
     groups.push({ bucket, label: labels[bucket], rows });
   }
 
@@ -74,7 +74,7 @@ export function buildStatusGroups(
 function compareStatusRows(
   a: SidebarWorkspaceEntry,
   b: SidebarWorkspaceEntry,
-  projectNamesByKey: Map<string, string>,
+  projectNamesByViewKey: Map<string, string>,
 ): number {
   const aTime = a.statusEnteredAt?.getTime() ?? null;
   const bTime = b.statusEnteredAt?.getTime() ?? null;
@@ -87,8 +87,8 @@ function compareStatusRows(
     return 1;
   }
 
-  const aProject = projectNamesByKey.get(a.projectKey) ?? "";
-  const bProject = projectNamesByKey.get(b.projectKey) ?? "";
+  const aProject = projectNamesByViewKey.get(a.projectViewKey) ?? "";
+  const bProject = projectNamesByViewKey.get(b.projectViewKey) ?? "";
   const projectCmp = aProject.localeCompare(bProject);
   if (projectCmp !== 0) return projectCmp;
 

@@ -36,11 +36,11 @@ function agent(overrides: Partial<Agent>): Agent {
 
 const PROJECTS: SidebarProjectRef[] = [
   {
-    projectKey: "project-1",
+    viewKey: "project-1",
     workspaces: [{ serverId: "srv", workspaceId: "ws-1" }],
   },
   {
-    projectKey: "project-2",
+    viewKey: "project-2",
     workspaces: [{ serverId: "srv", workspaceId: "ws-2" }],
   },
 ];

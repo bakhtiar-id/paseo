@@ -5,7 +5,9 @@ import type {
 
 export interface SidebarProjectHostTarget {
   serverId: string;
+  projectId: string;
   iconWorkingDir: string;
+  customIconRevision?: string | null;
 }
 
 export interface SidebarProjectTerminalTarget {
@@ -28,16 +30,22 @@ export interface SidebarProjectSectionRowModel {
 export type SidebarProjectRowModel = SidebarProjectSectionRowModel;
 
 const EMPTY_MULTIPLICITY_MAP: ReadonlyMap<string, boolean> = new Map();
-
 function hostTarget(input: {
   serverId: string;
+  projectId: string;
   iconWorkingDir: string;
+  customIconRevision?: string | null;
 }): SidebarProjectHostTarget | null {
   const iconWorkingDir = input.iconWorkingDir.trim();
   if (!input.serverId || !iconWorkingDir) {
     return null;
   }
-  return { serverId: input.serverId, iconWorkingDir };
+  return {
+    serverId: input.serverId,
+    projectId: input.projectId,
+    iconWorkingDir,
+    customIconRevision: input.customIconRevision,
+  };
 }
 
 export function resolveSidebarProjectIconTarget(
@@ -50,6 +58,27 @@ export function resolveSidebarProjectIconTarget(
     }
   }
   return null;
+}
+
+export interface SidebarProjectIconTarget extends SidebarProjectHostTarget {
+  projectViewKey: string;
+}
+
+export function resolveSidebarProjectIconTargets(
+  projects: readonly SidebarProjectEntry[],
+): SidebarProjectIconTarget[] {
+  return projects.flatMap((project) => {
+    const target = resolveSidebarProjectIconTarget(project);
+    return target ? [{ projectViewKey: project.viewKey, ...target }] : [];
+  });
+}
+
+export function resolveSidebarProjectLocalPath(
+  project: SidebarProjectEntry,
+  localServerId: string | null,
+): string {
+  if (!localServerId) return "";
+  return project.hosts.find((host) => host.serverId === localServerId)?.iconWorkingDir.trim() ?? "";
 }
 
 export function resolveSidebarProjectTerminalTarget(
@@ -92,13 +121,14 @@ function resolveNewWorkspaceTarget(
   supportsMultiplicityByServerId: ReadonlyMap<string, boolean>,
 ): SidebarProjectHostTarget | null {
   for (const host of project.hosts) {
-    if (!host.canCreateWorktree && !supportsMultiplicityByServerId.get(host.serverId)) {
+    if (
+      host.worktreeSupport === "unsupported" &&
+      !supportsMultiplicityByServerId.get(host.serverId)
+    ) {
       continue;
     }
     const target = hostTarget(host);
-    if (target) {
-      return target;
-    }
+    if (target) return target;
   }
   return null;
 }

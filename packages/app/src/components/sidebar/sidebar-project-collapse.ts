@@ -2,7 +2,7 @@ import type { Agent } from "@/stores/session-store";
 import { deriveSidebarStateBucket } from "@/utils/sidebar-agent-state";
 
 export interface SidebarProjectRef {
-  projectKey: string;
+  viewKey: string;
   workspaces: ReadonlyArray<{ serverId: string; workspaceId: string }>;
 }
 
@@ -64,10 +64,7 @@ export function resolveLiveProjectKeys(
   const projectKeyByWorkspace = new Map<string, string>();
   for (const project of projects) {
     for (const placement of project.workspaces) {
-      projectKeyByWorkspace.set(
-        `${placement.serverId}:${placement.workspaceId}`,
-        project.projectKey,
-      );
+      projectKeyByWorkspace.set(`${placement.serverId}:${placement.workspaceId}`, project.viewKey);
     }
   }
   const live = new Set<string>();
@@ -105,10 +102,10 @@ export function resolveEffectiveCollapsedProjectKeys(input: {
   const next = new Set(input.collapsedProjectKeys);
   for (const project of input.projects) {
     if (
-      !input.liveProjectKeys.has(project.projectKey) &&
-      !input.expandedProjectKeys.has(project.projectKey)
+      !input.liveProjectKeys.has(project.viewKey) &&
+      !input.expandedProjectKeys.has(project.viewKey)
     ) {
-      next.add(project.projectKey);
+      next.add(project.viewKey);
     }
   }
   return next;

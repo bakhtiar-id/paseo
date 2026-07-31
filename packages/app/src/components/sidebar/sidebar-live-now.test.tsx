@@ -84,8 +84,8 @@ vi.mock("@/components/provider-icons", () => ({
   getProviderIcon: () => () => null,
 }));
 
-vi.mock("@/composer/agent-controls/mode-control", () => ({ MODE_ICONS: {} }));
-vi.mock("@/composer/agent-controls/utils", () => ({
+vi.mock("@/agent-controls/icons", () => ({ MODE_ICONS: {} }));
+vi.mock("@/agent-controls/labels", () => ({
   formatAgentModeLabel: () => null,
   formatThinkingOptionLabel: () => null,
 }));

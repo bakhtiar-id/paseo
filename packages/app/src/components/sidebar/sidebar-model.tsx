@@ -26,7 +26,7 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   statusGroups: StatusGroup[];
   pinnedGroups: PinnedSidebarGroups;
   collapsedProjectKeys: ReadonlySet<string>;
-  toggleProjectCollapsed: (projectKey: string) => void;
+  toggleProjectCollapsed: (projectViewKey: string) => void;
   shortcutModel: SidebarShortcutModel;
 }
 
@@ -106,7 +106,7 @@ export function SidebarModelProvider({
         projects: list.projects,
         pinnedKeys,
         workspaceEntriesByKey: projectionWorkspaceEntriesByKey,
-        projectNamesByKey: list.projectNamesByKey,
+        projectNamesByViewKey: list.projectNamesByViewKey,
         groupMode,
         pinnedCollapsed,
         collapsedProjectKeys: effectiveCollapsedProjectKeys,
@@ -117,7 +117,7 @@ export function SidebarModelProvider({
       effectiveCollapsedProjectKeys,
       collapsedStatusGroupKeys,
       groupMode,
-      list.projectNamesByKey,
+      list.projectNamesByViewKey,
       list.projects,
       pinnedCollapsed,
       pinnedKeys,
