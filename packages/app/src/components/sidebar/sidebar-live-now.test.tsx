@@ -92,7 +92,10 @@ vi.mock("@/agent-controls/labels", () => ({
 vi.mock("@/composer/agent-controls/model-sheet", () => ({ shortModelLabel: () => null }));
 vi.mock("@/utils/time", () => ({ formatTimeAgo: () => "now" }));
 vi.mock("@/utils/navigate-to-agent", () => ({ navigateToAgent: vi.fn() }));
-vi.mock("@/components/ui/pulsing-dot", () => ({ PulsingHalo: () => null }));
+vi.mock("@/components/ui/pulsing-dot", () => ({
+  PulsingHalo: () => null,
+  PulsingDot: () => null,
+}));
 vi.mock("@/components/sidebar/sidebar-agent-row", () => ({
   AgentContextBar: ({ percent }: { percent: number }) => `${percent}%`,
   AgentRowMetaLine: () => null,

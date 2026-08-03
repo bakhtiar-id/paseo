@@ -944,7 +944,10 @@ async function runCreateChatAgent(input: CreateChatAgentInput): Promise<void> {
     cwd,
     prompt: text,
     attachments: workspaceNamingAttachments,
-    withInitialAgent: false,
+    // Attach the prompt as firstAgentContext so the daemon auto-names this
+    // workspace (title + worktree branch) from it. The agent itself is still
+    // started by submitWorkspaceDraft below, not by the create call.
+    withInitialAgent: true,
   });
   const initialSetup = buildWorkspaceDraftSetupForCreatedWorkspace({
     forkDraftSetup: input.forkDraftSetup,

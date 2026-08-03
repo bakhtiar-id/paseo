@@ -66,6 +66,15 @@ const STORED_AGENT_SCHEMA = z.object({
   internal: z.boolean().optional(),
   archivedAt: z.string().nullable().optional(),
   owner: AgentOwnerSchema.optional(),
+  cumulativeUsage: z
+    .object({
+      inputTokens: z.number(),
+      cachedInputTokens: z.number(),
+      outputTokens: z.number(),
+      costUsd: z.number(),
+      runningMs: z.number(),
+    })
+    .optional(),
 });
 
 export type SerializableAgentConfig = Pick<

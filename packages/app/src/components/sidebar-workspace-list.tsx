@@ -126,6 +126,7 @@ import {
 } from "@/components/sidebar/sidebar-workspace-row-content";
 import { SidebarWorkspaceAgentRows } from "@/components/sidebar/sidebar-agent-row";
 import { SidebarDoneWorkspacesToggle } from "@/components/sidebar/sidebar-done-workspaces-toggle";
+import { UsageSubtitle, type UsageAggregate } from "@/components/sidebar/sidebar-usage-strip";
 import {
   collectWorkspaceAgentDoneKeys,
   shouldSweepWorkspace,
@@ -316,6 +317,9 @@ interface ProjectHeaderRowProps {
   removeProjectStatus?: "idle" | "pending";
   dragHandleProps?: DraggableListDragHandleProps;
   statusRollup?: SidebarProjectStatusRollupItem[];
+  statusRollupLiveCount?: number;
+  /** Small muted usage line under the project title: aggregate tokens + active time. */
+  usage?: UsageAggregate | null;
   doneCount?: number;
   doneExpanded?: boolean;
   onToggleDone?: () => void;
@@ -642,13 +646,29 @@ function RollupPillPulse({ children }: { children: ReactNode }) {
   return <Animated.View style={pulseStyle}>{children}</Animated.View>;
 }
 
-function SidebarProjectStatusRollup({ items }: { items: SidebarProjectStatusRollupItem[] }) {
+function SidebarProjectStatusRollup({
+  items,
+  liveCount,
+}: {
+  items: SidebarProjectStatusRollupItem[];
+  liveCount: number;
+}) {
   const statusBucketLabels = useStatusBucketLabels();
-  if (items.length === 0) {
+  if (liveCount === 0) {
     return null;
   }
+  // Count every non-done workspace, not just the ones with a live agent: an
+  // idle workspace (no active agent) must still make the badge visible.
+  const activeCount = liveCount;
   return (
     <View style={styles.projectStatusRollup} testID="sidebar-project-status-rollup">
+      <View
+        style={styles.projectActiveCountBadge}
+        accessibilityLabel={`${activeCount} active`}
+        testID="sidebar-project-active-count"
+      >
+        <Text style={styles.projectActiveCountBadgeText}>{activeCount}</Text>
+      </View>
       {items.slice(0, 3).map((item) => (
         <View
           key={item.bucket}
@@ -1182,6 +1202,27 @@ function NewWorkspaceGhostRow({
   );
 }
 
+function ProjectTitleBlock({
+  displayName,
+  usage,
+}: {
+  displayName: string;
+  usage?: UsageAggregate | null;
+}) {
+  return (
+    <View style={[styles.projectTitleGroup, usage ? styles.projectTitleGroupStacked : null]}>
+      <Text style={styles.projectTitle} numberOfLines={1}>
+        {displayName}
+      </Text>
+      {usage ? (
+        <View style={styles.projectUsageRow}>
+          <UsageSubtitle aggregate={usage} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function ProjectHeaderRow({
   project,
   displayName,
@@ -1207,6 +1248,8 @@ function ProjectHeaderRow({
   removeProjectStatus = "idle",
   dragHandleProps,
   statusRollup = EMPTY_STATUS_ROLLUP,
+  statusRollupLiveCount = 0,
+  usage,
   doneCount,
   doneExpanded,
   onToggleDone,
@@ -1272,13 +1315,9 @@ function ProjectHeaderRow({
           isArchiving={isArchiving}
         />
 
-        <View style={styles.projectTitleGroup}>
-          <Text style={styles.projectTitle} numberOfLines={1}>
-            {displayName}
-          </Text>
-        </View>
+        <ProjectTitleBlock displayName={displayName} usage={usage} />
       </View>
-      <SidebarProjectStatusRollup items={statusRollup} />
+      <SidebarProjectStatusRollup items={statusRollup} liveCount={statusRollupLiveCount} />
       <ProjectRowTrailingActions
         project={project}
         displayName={displayName}
@@ -1882,40 +1921,79 @@ function ProjectBlock({
   // manually marked done from the agent row menu.
   const manualDoneKeys = useAgentDoneStore((state) => state.manuallyDoneAgentKeys);
   const setManuallyDone = useAgentDoneStore((state) => state.setManuallyDone);
-  const workspaceSweepMap = useSessionStore(
-    useShallow((state) => {
-      const map = new Map<string, boolean>();
-      for (const workspace of project.workspaces) {
-        const session = state.sessions[workspace.serverId];
-        const agents: Agent[] = [];
-        if (session) {
-          for (const agent of session.agents.values()) {
-            if (agent.workspaceId === workspace.workspaceId) {
-              agents.push(agent);
-            }
+  // Stable reactive input only: Object.values yields the store's own session
+  // references, which useShallow compares by reference (same pattern as
+  // useWorkspaceUsage). The Maps are derived in useMemo below instead —
+  // building fresh Maps inside the selector made useShallow read an unstable
+  // snapshot on every render, which spins useSyncExternalStore into
+  // "Maximum update depth exceeded".
+  const sessions = useSessionStore(useShallow((state) => Object.values(state.sessions)));
+  const workspaceSweepMap = useMemo(() => {
+    const sessionsByServerId = new Map(
+      sessions.map((session) => [session?.serverId, session] as const),
+    );
+    const sweep = new Map<string, boolean>();
+    const latestActivityByWorkspaceKey = new Map<string, Date>();
+    const usageByWorkspaceKey = new Map<string, UsageAggregate>();
+    for (const workspace of project.workspaces) {
+      const session = sessionsByServerId.get(workspace.serverId);
+      const agents: Agent[] = [];
+      let latestActivity: Date | null = null;
+      let tokens = 0;
+      let runningMs = 0;
+      if (session) {
+        for (const agent of session.agents.values()) {
+          if (agent.workspaceId !== workspace.workspaceId) continue;
+          if (!agent.archivedAt) agents.push(agent);
+          if (!latestActivity || agent.lastActivityAt.getTime() > latestActivity.getTime()) {
+            latestActivity = agent.lastActivityAt;
+          }
+          const usage = agent.cumulativeUsage;
+          if (!agent.archivedAt && usage) {
+            tokens += usage.inputTokens + usage.cachedInputTokens + usage.outputTokens;
+            runningMs += usage.runningMs;
           }
         }
-        map.set(
-          workspace.workspaceKey,
-          shouldSweepWorkspace({
-            hydrated: workspaceEntriesByKey.has(workspace.workspaceKey),
-            agents,
-            manualDoneKeys,
-            nowMs: Date.now(),
-          }),
-        );
       }
-      return map;
-    }),
-  );
+      sweep.set(
+        workspace.workspaceKey,
+        shouldSweepWorkspace({
+          hydrated: workspaceEntriesByKey.has(workspace.workspaceKey),
+          agents,
+          manualDoneKeys,
+          nowMs: Date.now(),
+        }),
+      );
+      if (latestActivity) {
+        latestActivityByWorkspaceKey.set(workspace.workspaceKey, latestActivity);
+      }
+      usageByWorkspaceKey.set(workspace.workspaceKey, { tokens, runningMs });
+    }
+    return { sweep, latestActivityByWorkspaceKey, usageByWorkspaceKey };
+  }, [sessions, project.workspaces, workspaceEntriesByKey, manualDoneKeys]);
   const workspaceSweep = useMemo(() => {
     const live: SidebarWorkspacePlacement[] = [];
     const done: SidebarWorkspacePlacement[] = [];
     for (const workspace of project.workspaces) {
-      (workspaceSweepMap.get(workspace.workspaceKey) === true ? done : live).push(workspace);
+      (workspaceSweepMap.sweep.get(workspace.workspaceKey) === true ? done : live).push(workspace);
     }
+    // Newest activity first so a just-completed workspace lands on top of done.
+    done.sort(
+      (a, b) =>
+        (workspaceSweepMap.latestActivityByWorkspaceKey.get(b.workspaceKey)?.getTime() ?? 0) -
+        (workspaceSweepMap.latestActivityByWorkspaceKey.get(a.workspaceKey)?.getTime() ?? 0),
+    );
     return { live, done };
   }, [project.workspaces, workspaceSweepMap]);
+  const projectUsage = useMemo(() => {
+    let tokens = 0;
+    let runningMs = 0;
+    for (const aggregate of workspaceSweepMap.usageByWorkspaceKey.values()) {
+      tokens += aggregate.tokens;
+      runningMs += aggregate.runningMs;
+    }
+    return tokens > 0 || runningMs > 0 ? { tokens, runningMs } : null;
+  }, [workspaceSweepMap]);
   const {
     visibleItems: visibleWorkspaces,
     expanded: workspacesExpanded,
@@ -2182,8 +2260,8 @@ function ProjectBlock({
   // Manual sweep override: flag every agent on every live workspace as done so
   // the whole project collapses behind the done toggle now, not after a day.
   const handleMarkAllDone = useCallback(() => {
-    const sessions = useSessionStore.getState().sessions;
-    for (const key of collectWorkspaceAgentDoneKeys(sessions, workspaceSweep.live)) {
+    const sessionsSnapshot = useSessionStore.getState().sessions;
+    for (const key of collectWorkspaceAgentDoneKeys(sessionsSnapshot, workspaceSweep.live)) {
       setManuallyDone(key, true);
     }
   }, [setManuallyDone, workspaceSweep.live]);
@@ -2271,6 +2349,8 @@ function ProjectBlock({
         removeProjectStatus={isRemovingProject ? "pending" : "idle"}
         dragHandleProps={dragHandleProps}
         statusRollup={statusRollup}
+        statusRollupLiveCount={workspaceSweep.live.length}
+        usage={projectUsage}
         doneCount={workspaceSweep.done.length}
         doneExpanded={doneExpanded}
         onToggleDone={toggleDoneExpanded}
@@ -3007,6 +3087,15 @@ const styles = StyleSheet.create((theme) => ({
   projectIconFallbackText: {
     fontSize: 9,
   },
+  projectTitleGroupStacked: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 0,
+  },
+  projectUsageRow: {
+    minWidth: 0,
+    flexShrink: 1,
+  },
   projectTitle: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
@@ -3052,6 +3141,24 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[1],
     flexShrink: 0,
+  },
+  projectActiveCountBadge: {
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: theme.spacing[1],
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface2,
+    flexShrink: 0,
+  },
+  projectActiveCountBadgeText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.semibold,
+    lineHeight: 14,
   },
   projectKebabButton: {
     width: 24,

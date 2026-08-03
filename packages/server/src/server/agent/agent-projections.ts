@@ -94,6 +94,7 @@ export function toStoredAgentRecord(
       : null,
     internal: options?.internal,
     owner: agent.owner,
+    ...(agent.cumulativeUsage ? { cumulativeUsage: agent.cumulativeUsage } : {}),
   } satisfies StoredAgentRecord;
 }
 
@@ -134,6 +135,10 @@ export function toAgentPayload(
   const usage = sanitizeUsage(agent.lastUsage);
   if (usage !== undefined) {
     payload.lastUsage = usage;
+  }
+
+  if (agent.cumulativeUsage) {
+    payload.cumulativeUsage = agent.cumulativeUsage;
   }
 
   if (agent.lastError !== undefined) {
@@ -236,6 +241,7 @@ export function buildStoredAgentPayload(
     attentionTimestamp: record.attentionTimestamp ?? null,
     archivedAt: record.archivedAt ?? null,
     labels: normalizeLabels(record.labels),
+    ...(record.cumulativeUsage ? { cumulativeUsage: record.cumulativeUsage } : {}),
     ...(providerAvailable ? {} : { providerUnavailable: true }),
   };
 }

@@ -38,6 +38,7 @@ import {
   type AgentStreamEvent,
   type AgentTimelineItem,
   type AgentUsage,
+  type AgentCumulativeUsage,
   type AgentRuntimeInfo,
   type ImportedTimelineEntry,
   type ImportableProviderSession,
@@ -331,6 +332,13 @@ interface ManagedAgentBase {
   lastUserMessageAt: Date | null;
   lastUsage?: AgentUsage;
   lastError?: string;
+  /**
+   * Durable lifetime ledger (tokens + running time). Token fields hold the
+   * max a cumulative provider reported; runningMs is summed from turn spans.
+   */
+  cumulativeUsage?: AgentCumulativeUsage;
+  /** Millisecond epoch when the current run segment started; null while idle. */
+  runningStartedAtMs?: number | null;
   attention: AttentionState;
   foregroundTurnWaiters: Set<ForegroundTurnWaiter>;
   finalizedForegroundTurnIds: Set<string>;
@@ -1061,6 +1069,7 @@ export class AgentManager {
       labels?: Record<string, string>;
       workspaceId?: string;
       owner?: AgentOwner;
+      cumulativeUsage?: AgentCumulativeUsage;
     },
     resumeOptions?: AgentResumeSessionOptions,
   ): Promise<ManagedAgent> {
@@ -1080,6 +1089,7 @@ export class AgentManager {
       labels?: Record<string, string>;
       workspaceId?: string;
       owner?: AgentOwner;
+      cumulativeUsage?: AgentCumulativeUsage;
     },
     resumeOptions?: AgentResumeSessionOptions,
   ): Promise<ManagedAgent> {
@@ -1223,6 +1233,7 @@ export class AgentManager {
     const rehydrateFromDisk = options?.rehydrateFromDisk ?? false;
     const preservedHistoryPrimed = existing.historyPrimed;
     const preservedLastUsage = existing.lastUsage;
+    const preservedCumulativeUsage = existing.cumulativeUsage;
     const preservedLastError = existing.lastError;
     const preservedAttention = existing.attention;
     const handle = existing.persistence;
@@ -1274,6 +1285,7 @@ export class AgentManager {
         lastUserMessageAt: existing.lastUserMessageAt,
         historyPrimed: rehydrateFromDisk ? false : preservedHistoryPrimed,
         lastUsage: preservedLastUsage,
+        cumulativeUsage: preservedCumulativeUsage,
         lastError: preservedLastError,
         attention: preservedAttention,
       });
@@ -1530,6 +1542,7 @@ export class AgentManager {
         historyPrimed: true,
         lastUserMessageAt: record.lastUserMessageAt ? new Date(record.lastUserMessageAt) : null,
         lastUsage: undefined,
+        cumulativeUsage: record.cumulativeUsage,
         lastError: record.lastError ?? undefined,
         attention: { requiresAttention: false },
         internal: record.internal,
@@ -2670,6 +2683,7 @@ export class AgentManager {
       persistence?: AgentPersistenceHandle;
       historyPrimed?: boolean;
       lastUsage?: AgentUsage;
+      cumulativeUsage?: AgentCumulativeUsage;
       lastError?: string;
       attention?: AttentionState;
       initialTitle?: string | null;
@@ -2810,6 +2824,7 @@ export class AgentManager {
           labels?: Record<string, string>;
           historyPrimed?: boolean;
           lastUsage?: AgentUsage;
+          cumulativeUsage?: AgentCumulativeUsage;
           lastError?: string;
           attention?: AttentionState;
           persistence?: AgentPersistenceHandle;
@@ -2849,6 +2864,8 @@ export class AgentManager {
       historyPrimed: options?.historyPrimed ?? durableTimelineHasRows,
       lastUserMessageAt: options?.lastUserMessageAt ?? null,
       lastUsage: options?.lastUsage,
+      cumulativeUsage: options?.cumulativeUsage,
+      runningStartedAtMs: null,
       lastError: options?.lastError,
       attention: resolveInitialAttention(options?.attention),
       internal: config.internal ?? false,
@@ -3428,6 +3445,7 @@ export class AgentManager {
         return undefined;
       case "usage_updated":
         agent.lastUsage = event.usage;
+        this.accumulateUsage(agent, event.usage);
         this.emitState(agent);
         return undefined;
       case "mode_changed":
@@ -3559,10 +3577,12 @@ export class AgentManager {
     );
     if (event.usage) {
       agent.lastUsage = { ...agent.lastUsage, ...event.usage };
+      this.accumulateUsage(agent, event.usage);
     }
     // If no usage on turn_completed, keep lastUsage as-is so context window
     // data accumulated during streaming isn't lost when the provider omits
     // it from the completion event.
+    this.finalizeRunningSegment(agent);
     agent.lastError = undefined;
     if (!isForegroundEvent && agent.lifecycle !== "idle" && !agent.pendingReplacement) {
       (agent as ActiveManagedAgent).lifecycle = "idle";
@@ -3594,6 +3614,7 @@ export class AgentManager {
       },
       "handleStreamEvent: turn_failed",
     );
+    this.finalizeRunningSegment(agent);
     if (!isForegroundEvent) {
       agent.lifecycle = "error";
     }
@@ -3634,6 +3655,7 @@ export class AgentManager {
       },
       "agent.manager.turn.canceled",
     );
+    this.finalizeRunningSegment(agent);
     if (!isForegroundEvent && !agent.pendingReplacement) {
       agent.lifecycle = "idle";
     }
@@ -3661,11 +3683,58 @@ export class AgentManager {
       },
       "agent.manager.turn.started",
     );
+    this.startRunningSegment(agent);
     if (!isForegroundEvent) {
       this.runs.trackAutonomousRun(agent.id, eventTurnId ?? null);
       agent.lifecycle = "running";
       this.emitState(agent);
     }
+  }
+
+  private startRunningSegment(agent: ActiveManagedAgent): void {
+    if (agent.runningStartedAtMs == null) {
+      agent.runningStartedAtMs = Date.now();
+    }
+  }
+
+  private finalizeRunningSegment(agent: ActiveManagedAgent): void {
+    const startedAt = agent.runningStartedAtMs;
+    if (startedAt == null) {
+      return;
+    }
+    agent.runningStartedAtMs = null;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed <= 0) {
+      return;
+    }
+    const current = agent.cumulativeUsage ?? {
+      inputTokens: 0,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      runningMs: 0,
+    };
+    agent.cumulativeUsage = { ...current, runningMs: current.runningMs + elapsed };
+  }
+
+  private accumulateUsage(agent: ActiveManagedAgent, usage: AgentUsage | undefined): void {
+    if (!usage) {
+      return;
+    }
+    const current = agent.cumulativeUsage ?? {
+      inputTokens: 0,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      runningMs: 0,
+    };
+    agent.cumulativeUsage = {
+      inputTokens: Math.max(current.inputTokens, usage.inputTokens ?? 0),
+      cachedInputTokens: Math.max(current.cachedInputTokens, usage.cachedInputTokens ?? 0),
+      outputTokens: Math.max(current.outputTokens, usage.outputTokens ?? 0),
+      costUsd: Math.max(current.costUsd, usage.totalCostUsd ?? 0),
+      runningMs: current.runningMs,
+    };
   }
 
   private onStreamPermissionRequested(

@@ -14,7 +14,7 @@ import { shortModelLabel } from "@/composer/agent-controls/model-sheet";
 import { formatTimeAgo } from "@/utils/time";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { baseColors, type Theme } from "@/styles/theme";
-import { PulsingHalo } from "@/components/ui/pulsing-dot";
+import { PulsingDot, PulsingHalo } from "@/components/ui/pulsing-dot";
 import {
   AgentContextBar,
   AgentRowMetaLine,
@@ -28,7 +28,6 @@ import { useLimitedSidebarGroup } from "./use-limited-sidebar-group";
 
 const foregroundMutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const ThemedLiveDot = withUnistyles(CircleDot);
-const liveDotMapping = () => ({ color: baseColors.green[500] });
 
 // Same cache pattern as sidebar-agent-row: provider/mode icons vary per row.
 type ThemedIconComponent = ComponentType<{
@@ -134,7 +133,9 @@ function useLiveSidebarEntries(): LiveEntry[] {
       if (priorityDiff !== 0) {
         return priorityDiff;
       }
-      return b.agent.lastActivityAt.getTime() - a.agent.lastActivityAt.getTime();
+      // Created-at keeps the order stable: lastActivityAt would re-sort a row to
+      // the top on every update tick.
+      return b.agent.createdAt.getTime() - a.agent.createdAt.getTime();
     });
     return entries;
   }, [liveAgents, workspaceLabels]);
@@ -234,14 +235,25 @@ export function SidebarLiveNowSection() {
   const { t } = useTranslation();
   const entries = useLiveSidebarEntries();
   const { visibleItems, expanded, canToggle, toggleExpanded } = useLimitedSidebarGroup(entries, 4);
+  // Needs input trumps failure trumps plain activity; nothing live stays muted.
+  const liveDotColor = useMemo(() => {
+    if (entries.some((entry) => entry.bucket === "needs_input")) {
+      return baseColors.amber[500];
+    }
+    if (entries.some((entry) => entry.bucket === "failed")) {
+      return baseColors.red[500];
+    }
+    return entries.length > 0 ? baseColors.green[500] : null;
+  }, [entries]);
 
   return (
     <View style={styles.section} testID="sidebar-live-now">
       <View style={styles.header}>
-        <ThemedLiveDot
-          size={8}
-          uniProps={entries.length > 0 ? liveDotMapping : foregroundMutedIconMapping}
-        />
+        {liveDotColor ? (
+          <PulsingDot color={liveDotColor} size={8} />
+        ) : (
+          <ThemedLiveDot size={8} uniProps={foregroundMutedIconMapping} />
+        )}
         <Text style={styles.headerTitle}>{t("sidebar.liveNow.title")}</Text>
         <Text style={styles.headerCount}>{entries.length}</Text>
       </View>

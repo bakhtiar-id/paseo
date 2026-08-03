@@ -29,6 +29,10 @@ import { useStatusBucketLabels } from "@/hooks/sidebar-status-view-model";
 import { PulsingDot, PulsingHalo } from "@/components/ui/pulsing-dot";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sidebar-workspace-title";
+import {
+  useWorkspaceUsageAggregate,
+  UsageSubtitle,
+} from "@/components/sidebar/sidebar-usage-strip";
 
 const DEFAULT_STATUS_DOT_SIZE = 7;
 const EMPHASIZED_STATUS_DOT_SIZE = 9;
@@ -126,6 +130,7 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
     settings: { workspaceTitleSource },
   } = useAppSettings();
   const workspaceLabel = resolveSidebarWorkspacePrimaryLabel({ workspace, workspaceTitleSource });
+  const usageAggregate = useWorkspaceUsageAggregate(workspace.workspaceKey);
   const workspaceBranchTextStyle = useMemo(
     () => [
       styles.workspaceBranchText,
@@ -155,7 +160,8 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
             </View>
             <View style={sidebarWorkspaceRowStyles.rowRight}>{children}</View>
           </View>
-          {subtitle ? (
+          {usageAggregate ? <UsageSubtitle aggregate={usageAggregate} /> : null}
+          {!usageAggregate && subtitle ? (
             <View style={styles.workspaceSubtitleRow}>
               {subtitleProjectName ? (
                 <SidebarSubtitleProjectIcon

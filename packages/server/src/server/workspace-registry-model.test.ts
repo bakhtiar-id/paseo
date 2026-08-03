@@ -3,6 +3,7 @@ import { isAbsolute } from "node:path";
 
 import {
   checkoutFromPersistedWorkspacePlacement,
+  deriveWorkspaceDisplayName,
   deriveWorkspaceKind,
   generateWorkspaceId,
   generateProjectId,
@@ -40,6 +41,59 @@ describe("workspace kind", () => {
   });
 });
 
+describe("workspace display name", () => {
+  test("derives the folder name for a regular checkout instead of the raw default branch", () => {
+    expect(
+      deriveWorkspaceDisplayName({
+        cwd: "/projects/paseo",
+        checkout: {
+          cwd: "/projects/paseo",
+          isGit: true,
+          currentBranch: "master",
+          remoteUrl: null,
+          worktreeRoot: "/projects/paseo",
+          isPaseoOwnedWorktree: false,
+          mainRepoRoot: null,
+        },
+      }),
+    ).toBe("paseo");
+  });
+
+  test("keeps the branch name for a worktree, where it names the line of work", () => {
+    expect(
+      deriveWorkspaceDisplayName({
+        cwd: "/tmp/paseo-feature-login",
+        checkout: {
+          cwd: "/tmp/paseo-feature-login",
+          isGit: true,
+          currentBranch: "feature/login",
+          remoteUrl: null,
+          worktreeRoot: "/tmp/paseo-feature-login",
+          isPaseoOwnedWorktree: false,
+          mainRepoRoot: "/projects/paseo",
+        },
+      }),
+    ).toBe("feature/login");
+  });
+
+  test("falls back to the folder name for a detached-HEAD worktree", () => {
+    expect(
+      deriveWorkspaceDisplayName({
+        cwd: "/tmp/paseo-pr",
+        checkout: {
+          cwd: "/tmp/paseo-pr",
+          isGit: true,
+          currentBranch: "HEAD",
+          remoteUrl: null,
+          worktreeRoot: "/tmp/paseo-pr",
+          isPaseoOwnedWorktree: false,
+          mainRepoRoot: "/projects/paseo",
+        },
+      }),
+    ).toBe("paseo-pr");
+  });
+});
+
 describe("workspace placement", () => {
   test("defines checkout and created-worktree placement completely", () => {
     expect(
@@ -59,7 +113,7 @@ describe("workspace placement", () => {
     ).toEqual({
       cwd: "/repo",
       kind: "local_checkout",
-      displayName: "main",
+      displayName: "repo",
       branch: "main",
       worktreeRoot: "/repo",
       baseBranch: null,

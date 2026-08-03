@@ -211,6 +211,19 @@ export interface AgentUsage {
   contextWindowUsedTokens?: number;
 }
 
+/**
+ * Durable, monotonic usage ledger across an agent's whole lifetime. Token
+ * fields track the running maximum a (cumulative) provider reported; runningMs
+ * accumulates wall-clock time turns were active.
+ */
+export interface AgentCumulativeUsage {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  runningMs: number;
+}
+
 export const TOOL_CALL_ICON_NAMES = [
   "wrench",
   "square_terminal",

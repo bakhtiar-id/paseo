@@ -32,11 +32,13 @@ export function deriveWorkspaceDisplayName(input: {
   cwd: string;
   checkout: ProjectCheckoutLitePayload;
 }): string {
+  const segments = input.cwd.replace(/\\/g, "/").split("/").filter(Boolean);
+  const folder = segments[segments.length - 1] ?? input.cwd;
+  if (!input.checkout.mainRepoRoot) return folder;
+
   const branch = input.checkout.currentBranch?.trim() ?? null;
   if (branch && branch.toUpperCase() !== "HEAD") return branch;
-
-  const segments = input.cwd.replace(/\\/g, "/").split("/").filter(Boolean);
-  return segments[segments.length - 1] ?? input.cwd;
+  return folder;
 }
 
 export type PersistedWorkspacePlacement = Pick<
