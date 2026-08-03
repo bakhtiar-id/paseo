@@ -114,6 +114,38 @@ export function useWorkspaceUsageAggregate(workspaceKey: string): UsageAggregate
   }, [sessions, workspaceKey]);
 }
 
+/** Aggregate tokens + active time across a set of workspaces (project header). */
+export function useProjectUsage(workspaceKeys: readonly string[]): UsageAggregate | null {
+  const sessions = useSessionStore(useShallow((state) => Object.values(state.sessions)));
+  return useMemo(() => {
+    const keys = new Set(workspaceKeys);
+    let tokens = 0;
+    let runningMs = 0;
+    let seen = false;
+    for (const session of sessions) {
+      if (!session) {
+        continue;
+      }
+      for (const agent of session.agents.values()) {
+        if (agent.archivedAt || !agent.workspaceId) {
+          continue;
+        }
+        if (!keys.has(`${agent.serverId}:${agent.workspaceId}`)) {
+          continue;
+        }
+        const usage = agent.cumulativeUsage;
+        if (!usage) {
+          continue;
+        }
+        seen = true;
+        tokens += usage.inputTokens + usage.cachedInputTokens + usage.outputTokens;
+        runningMs += usage.runningMs;
+      }
+    }
+    return seen ? { tokens, runningMs } : null;
+  }, [sessions, workspaceKeys]);
+}
+
 /** "Coins 248K · Clock 1h 40m" — small muted meta line for a pre-summed aggregate. */
 export function UsageSubtitle({ aggregate }: { aggregate: UsageAggregate }) {
   const label = formatUsageLabel(aggregate);

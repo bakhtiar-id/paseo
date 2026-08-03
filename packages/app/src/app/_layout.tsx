@@ -21,8 +21,10 @@ import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-ha
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StyleSheet, UnistylesRuntime, useUnistyles } from "react-native-unistyles";
-import { CommandCenter, CommandCenterRootActions } from "@/command-center/command-center";
+import { CommandCenter } from "@/command-center/command-center";
+import { CommandCenterRootActions } from "@/command-center/root-registration";
 import { CommandCenterProvider } from "@/command-center/provider";
+import { CommandCenterWorkspaceActions } from "@/command-center/workspace-registration";
 import { AddProjectFlowHost } from "@/components/add-project-flow-host";
 import { WorktreeSetupCalloutSource } from "@/components/worktree-setup-callout-source";
 import { DownloadToast } from "@/components/download-toast";
@@ -51,6 +53,7 @@ import {
   canDesktopAppSidebarShare,
   resolveDesktopAppChromeLayout,
   resolveDesktopAppContentMinimum,
+  resolveDesktopSidebarVisibility,
 } from "@/components/desktop-sidebar-layout";
 import { isNative, isWeb } from "@/constants/platform";
 import { HorizontalScrollProvider } from "@/contexts/horizontal-scroll-context";
@@ -77,6 +80,7 @@ import { RosettaCalloutSource } from "@/desktop/updates/rosetta-callout-source";
 import { UpdateCalloutSource } from "@/desktop/updates/update-callout-source";
 import { useActiveWorktreeNewAction } from "@/hooks/use-active-worktree-new-action";
 import { useGlobalNewWorkspaceAction } from "@/hooks/use-global-new-workspace-action";
+import { useLatchedBoolean } from "@/hooks/use-latched-boolean";
 import { useFaviconStatus } from "@/hooks/use-favicon-status";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShiftProvider } from "@/hooks/use-keyboard-shift-style";
@@ -89,6 +93,7 @@ import { MobilePanelsProvider } from "@/mobile-panels/provider";
 import { I18nProvider } from "@/i18n/provider";
 import { keyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher";
 import { polyfillCrypto } from "@/polyfills/crypto";
+import { polyfillNavigator } from "@/polyfills/navigator";
 import { queryClient } from "@/data/query-client";
 import {
   getHostRuntimeStore,
@@ -126,6 +131,7 @@ import {
   type WebNotificationClickDetail,
 } from "@/utils/os-notifications";
 
+polyfillNavigator();
 polyfillCrypto();
 
 export interface HostRuntimeBootstrapState {
@@ -410,6 +416,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   const openDesktopAgentList = usePanelStore((state) => state.openDesktopAgentList);
   const closeDesktopAgentList = usePanelStore((state) => state.closeDesktopAgentList);
   const closeDesktopFileExplorer = usePanelStore((state) => state.closeDesktopFileExplorer);
+  const exitFocusMode = usePanelStore((state) => state.exitFocusMode);
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
   const isDesktopAgentListOpen = usePanelStore((state) => state.desktop.agentListOpen);
   const isDesktopFileExplorerOpen = usePanelStore((state) => state.desktop.fileExplorerOpen);
@@ -429,6 +436,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   const isWorkspaceRoute = parseHostWorkspaceRouteFromPathname(pathname) !== null;
   const isWorkspaceFocusModeEnabled = isWorkspaceRoute && isFocusModeEnabled;
   const chromeEnabled = chromeEnabledOverride ?? daemons.length > 0;
+  const hasMountedDesktopSidebar = useLatchedBoolean(chromeEnabled);
   const toggleAgentList = isCompactLayout ? toggleMobileAgentList : toggleDesktopAgentList;
   const toggleDesktopSidebars = useCallback(() => {
     const { desktop } = usePanelStore.getState();
@@ -454,8 +462,10 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   useKeyboardShortcuts({
     enabled: keyboardShortcutsEnabled,
     isMobile: isCompactLayout,
+    isWorkspaceFocusModeEnabled,
     toggleAgentList,
     toggleBothSidebars: toggleDesktopSidebars,
+    exitFocusMode,
     cycleTheme,
   });
 
@@ -468,16 +478,18 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     requestedExplorerWidth: explorerWidth,
     viewportWidth,
   });
-  const desktopSidebarMounted = chromeEnabled && !isWorkspaceFocusModeEnabled;
-  const desktopSidebarVisible =
-    !isCompactLayout &&
-    desktopSidebarMounted &&
-    isDesktopAgentListOpen &&
-    canDesktopAppSidebarShare({
+  const desktopSidebarMounted = hasMountedDesktopSidebar && !isWorkspaceFocusModeEnabled;
+  const desktopSidebarVisible = resolveDesktopSidebarVisibility({
+    chromeEnabled,
+    isCompactLayout,
+    isMounted: desktopSidebarMounted,
+    isOpen: isDesktopAgentListOpen,
+    canShare: canDesktopAppSidebarShare({
       contentMinimumWidth: appContentMinimumWidth,
       requestedSidebarWidth: sidebarWidth,
       viewportWidth,
-    });
+    }),
+  });
   const hasTopLeftWindowControls = useHasWindowChromeObstruction("top-left");
   const appChromeLayout = resolveDesktopAppChromeLayout({
     desktopSidebarRendered: desktopSidebarVisible,
@@ -498,9 +510,9 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
           {sidebarChrome}
         </WindowChromeRegion>
       ) : null}
-      {isCompactLayout && chromeEnabled ? (
+      {isCompactLayout ? (
         <CompactExplorerSidebarHost enabled={chromeEnabled}>
-          <WindowChromeRegion corners="both">
+          <WindowChromeRegion corners={chromeEnabled ? "both" : appChromeLayout.contentCorners}>
             <View style={flexStyle}>{children}</View>
           </WindowChromeRegion>
         </CompactExplorerSidebarHost>
@@ -535,6 +547,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
       <UpdateCalloutSource />
       <WorktreeSetupCalloutSource />
       <CommandCenterRootActions />
+      <CommandCenterWorkspaceActions />
       <WorkspacePinShortcutHandler />
       <CommandCenter />
       <AddProjectFlowHost />
