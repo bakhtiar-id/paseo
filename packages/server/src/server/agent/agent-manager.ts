@@ -2118,6 +2118,10 @@ export class AgentManager {
       agent.activeForegroundTurnId = turnId;
       this.openActiveTurn(agent, turnId, turnStartedAt);
       agent.lifecycle = "running";
+      // Wall-clock segment starts here: the manager-owned turn_started below is a
+      // subscriber broadcast only, and the provider's duplicate start is suppressed
+      // at ingestion, so without this no path ever opens runningMs.
+      this.startRunningSegment(agent);
       this.touchUpdatedAt(agent);
       // AgentManager owns the accepted-turn boundary. Publish liveness before the canonical
       // prompt so clients can retire optimistic activity without painting an idle frame.

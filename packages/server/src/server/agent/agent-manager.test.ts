@@ -3300,6 +3300,53 @@ test("setTitle bumps updatedAt and persists title in the same snapshot write", a
   expect(live!.updatedAt.getTime()).toBeGreaterThan(Date.parse(before!.updatedAt));
 });
 
+class TimedCompletionSession extends TestAgentSession {
+  override async startTurn(): Promise<{ turnId: string }> {
+    const turnId = "timed-turn";
+    // Completion lands a beat later so the wall-clock segment clears one
+    // Date.now() bucket even on coarse timers.
+    setTimeout(() => {
+      this.pushEvent({ type: "turn_started", provider: this.provider, turnId });
+      this.pushEvent({ type: "turn_completed", provider: this.provider, turnId });
+    }, 15);
+    return { turnId };
+  }
+}
+
+class TimedCompletionClient extends TestAgentClient {
+  override async createSession(config: AgentSessionConfig): Promise<AgentSession> {
+    return new TimedCompletionSession(config);
+  }
+}
+
+test("foreground turns record wall-clock time in cumulativeUsage.runningMs", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-running-ms-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const manager = new AgentManager({
+    clients: {
+      codex: new TimedCompletionClient(),
+    },
+    registry: storage,
+    logger,
+    idFactory: () => "00000000-0000-4000-8000-0000000001ab",
+  });
+
+  const snapshot = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: undefined,
+  });
+
+  for await (const event of manager.streamAgent(snapshot.id, "time me")) {
+    if (event.type === "turn_completed") {
+      break;
+    }
+  }
+
+  await vi.waitFor(() => {
+    expect(manager.getAgent(snapshot.id)?.lifecycle).toBe("idle");
+  });
+  expect(manager.getAgent(snapshot.id)?.cumulativeUsage?.runningMs).toBeGreaterThan(0);
+});
+
 test("retitleFirstWorkspaceAgentWithFallbackTitle renames only the earliest fallback-titled agent", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-retitle-first-"));
   const storagePath = join(workdir, "agents");
