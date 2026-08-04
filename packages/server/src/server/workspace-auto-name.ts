@@ -141,10 +141,16 @@ export class WorkspaceAutoName {
     // that happened between workspace creation and this async path is not clobbered.
     // When the first-agent rename changed the git branch too, persist that branch
     // alongside the title — both are this path's own fields.
+    const promptTitle = resolveFirstAgentPromptTitle(input.firstAgentContext);
     await this.applyGeneratedWorkspaceTitle(input.workspace.workspaceId, {
       title: generatedTitle,
       ...(result.renamed ? { branch: result.branchName } : {}),
-      promptTitle: resolveFirstAgentPromptTitle(input.firstAgentContext),
+      promptTitle,
+    });
+    await this.applyGeneratedFirstAgentTitle({
+      workspaceId: input.workspace.workspaceId,
+      generatedTitle,
+      promptTitle,
     });
     if (result.renamed) {
       await this.gitMutation.notifyGitMutation(worktreeRoot, "rename-branch");
@@ -169,11 +175,37 @@ export class WorkspaceAutoName {
     }
     // K4: applyGeneratedWorkspaceTitle re-reads from the registry before writing.
     // Directory workspaces have no branch — write only the title.
+    const promptTitle = resolveFirstAgentPromptTitle(input.firstAgentContext);
     await this.applyGeneratedWorkspaceTitle(input.workspaceId, {
       title,
-      promptTitle: resolveFirstAgentPromptTitle(input.firstAgentContext),
+      promptTitle,
+    });
+    await this.applyGeneratedFirstAgentTitle({
+      workspaceId: input.workspaceId,
+      generatedTitle: title,
+      promptTitle,
     });
     await this.emitWorkspaceUpdateForWorkspaceId(input.workspaceId);
+  }
+
+  /**
+   * Mirror the generated workspace title onto the first agent created from the same
+   * prompt, so the sidebar thread row doesn't stay at the raw prompt fallback.
+   * The manager only renames when the title still equals that exact fallback.
+   */
+  private async applyGeneratedFirstAgentTitle(input: {
+    workspaceId: string;
+    generatedTitle: string;
+    promptTitle: string | null;
+  }): Promise<void> {
+    if (!input.promptTitle) {
+      return;
+    }
+    await this.agentManager.retitleFirstWorkspaceAgentWithFallbackTitle({
+      workspaceId: input.workspaceId,
+      fallbackTitle: input.promptTitle,
+      title: input.generatedTitle,
+    });
   }
 
   private async applyGeneratedWorkspaceTitle(

@@ -22,6 +22,7 @@ import {
 import { HostBadge } from "@/components/sidebar/host-badge";
 import { ProjectStatusIndicator } from "@/components/sidebar/project-leading-visual";
 import { PulsingStatusDot } from "@/components/sidebar/pulsing-status-dot";
+import { PulsingHalo } from "@/components/ui/pulsing-dot";
 import {
   useWorkspaceUsageAggregate,
   UsageSubtitle,
@@ -30,7 +31,7 @@ import { WorkspaceHoverCard } from "@/components/workspace-hover-card";
 import type { HostBadgeModel } from "@/hosts/appearance";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { useAppSettings } from "@/hooks/use-settings";
-import type { Theme } from "@/styles/theme";
+import { baseColors, type Theme } from "@/styles/theme";
 import type { PrHint } from "@/git/use-pr-status-query";
 import { getForgePresentation, normalizeForge } from "@/git/forge";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
@@ -299,6 +300,8 @@ function WorkspaceStatusIndicator({
   if (bucket === "needs_input") {
     return (
       <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-needs_input">
+        {/* Same halo as agent rows: an amber pulse around the alert icon. */}
+        <PulsingHalo color={baseColors.amber[500]} size={14} />
         <ThemedCircleAlert size={14} uniProps={amberColorMapping} />
       </View>
     );

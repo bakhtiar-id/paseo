@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { Archive, ChevronDown, ChevronUp, MoreVertical } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { isNative as platformIsNative } from "@/constants/platform";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,12 +21,11 @@ const foregroundMutedIconMapping = (theme: Theme) => ({
 });
 const archiveLeadingIcon = <ThemedArchive size={14} uniProps={foregroundMutedIconMapping} />;
 
-// The row is one big Pressable; opening the menu must not toggle expansion.
+// The menu is a sibling overlay of the row Pressable so DOM buttons never nest
+// (nested <button> invalidates the HTML and fires hydration warnings).
 function stopTriggerPropagation(event: { stopPropagation?: () => void }) {
   event.stopPropagation?.();
 }
-
-const claimResponder = () => true;
 
 function menuTriggerStyle({
   hovered = false,
@@ -102,30 +102,52 @@ export function SidebarDoneWorkspacesToggle({
   );
   const Chevron = expanded ? ThemedChevronUp : ThemedChevronDown;
   const accessibilityState = useMemo(() => ({ expanded }), [expanded]);
+  // Keep the ⋯ menu out of the way until the row is hovered; touch platforms
+  // have no hover, so it stays visible there.
+  const [isRowHovered, setIsRowHovered] = useState(false);
+  const handlePointerEnter = useCallback(() => setIsRowHovered(true), []);
+  const handlePointerLeave = useCallback(() => setIsRowHovered(false), []);
+  const showMenu = isRowHovered || platformIsNative;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={accessibilityState}
-      onPress={onPress}
-      style={rowStyle}
-      testID={testID}
+    <View
+      style={styles.rowWrap}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
     >
-      <Chevron size={12} uniProps={foregroundMutedIconMapping} />
-      <Text style={styles.text} numberOfLines={1}>
-        {label}
-      </Text>
-      {onArchiveAll ? (
-        <View onStartShouldSetResponder={claimResponder}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={accessibilityState}
+        onPress={onPress}
+        style={rowStyle}
+        testID={testID}
+      >
+        <Chevron size={12} uniProps={foregroundMutedIconMapping} />
+        <Text style={styles.text} numberOfLines={1}>
+          {label}
+        </Text>
+      </Pressable>
+      {onArchiveAll && showMenu ? (
+        <View style={styles.menuSlot} pointerEvents="auto">
           <DoneRowMenu count={count} onArchiveAll={onArchiveAll} testID={`${testID}-menu`} />
         </View>
       ) : null}
-    </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
+  rowWrap: {
+    position: "relative",
+  },
+  menuSlot: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: theme.spacing[1],
+    justifyContent: "center",
+  },
   row: {
     minHeight: 26,
     marginLeft: theme.spacing[4] + 2,

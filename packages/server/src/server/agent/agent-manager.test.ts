@@ -3300,6 +3300,61 @@ test("setTitle bumps updatedAt and persists title in the same snapshot write", a
   expect(live!.updatedAt.getTime()).toBeGreaterThan(Date.parse(before!.updatedAt));
 });
 
+test("retitleFirstWorkspaceAgentWithFallbackTitle renames only the earliest fallback-titled agent", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-retitle-first-"));
+  const storagePath = join(workdir, "agents");
+  const storage = new AgentStorage(storagePath, logger);
+  let idCounter = 0;
+  const manager = new AgentManager({
+    clients: {
+      codex: new TestAgentClient(),
+    },
+    registry: storage,
+    logger,
+    idFactory: () => `00000000-0000-4000-8000-00000000013${idCounter++}`,
+  });
+
+  const fallback = "Summarize the log tail";
+  const first = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: fallback },
+    undefined,
+    { workspaceId: "ws-retitle" },
+  );
+  // Same workspace but already user-renamed — must not be clobbered.
+  const renamed = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: fallback },
+    undefined,
+    { workspaceId: "ws-retitle" },
+  );
+  await manager.setTitle(renamed.id, "User-picked name");
+  // Different workspace with the same fallback title — must not be touched.
+  const other = await manager.createAgent(
+    { provider: "codex", cwd: workdir, title: fallback },
+    undefined,
+    { workspaceId: "ws-other" },
+  );
+
+  const renamedOk = await manager.retitleFirstWorkspaceAgentWithFallbackTitle({
+    workspaceId: "ws-retitle",
+    fallbackTitle: fallback,
+    title: "Log tail summary",
+  });
+
+  expect(renamedOk).toBe(true);
+  expect((await storage.get(first.id))?.title).toBe("Log tail summary");
+  expect((await storage.get(renamed.id))?.title).toBe("User-picked name");
+  expect((await storage.get(other.id))?.title).toBe(fallback);
+
+  // Nothing left matching the fallback in that workspace — no further rename.
+  const again = await manager.retitleFirstWorkspaceAgentWithFallbackTitle({
+    workspaceId: "ws-retitle",
+    fallbackTitle: fallback,
+    title: "Log tail summary v2",
+  });
+  expect(again).toBe(false);
+  expect((await storage.get(first.id))?.title).toBe("Log tail summary");
+});
+
 test("updateAgentMetadata bumps updatedAt for stored agents", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-stored-metadata-updated-at-"));
   const storagePath = join(workdir, "agents");

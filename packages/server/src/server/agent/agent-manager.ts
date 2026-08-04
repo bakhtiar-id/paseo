@@ -1707,6 +1707,36 @@ export class AgentManager {
     this.emitState(agent, { persist: false });
   }
 
+  /**
+   * Rename the earliest agent of a workspace whose title is still the raw
+   * fallback (prompt-derived) title. Used by workspace auto-naming so the first
+   * thread mirrors the generated workspace title. No-op when the agent was
+   * already renamed by the user or another flow.
+   */
+  async retitleFirstWorkspaceAgentWithFallbackTitle(input: {
+    workspaceId: string;
+    fallbackTitle: string;
+    title: string;
+  }): Promise<boolean> {
+    const fallbackTitle = input.fallbackTitle.trim();
+    const title = input.title.trim();
+    if (!fallbackTitle || !title) {
+      return false;
+    }
+    const candidates = Array.from(this.agents.values())
+      .filter((agent) => !agent.internal && agent.workspaceId === input.workspaceId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    for (const agent of candidates) {
+      const record = this.registry ? await this.registry.get(agent.id) : null;
+      const currentTitle = record?.title ?? agent.config.title ?? null;
+      if (currentTitle === fallbackTitle) {
+        await this.setTitle(agent.id, title);
+        return true;
+      }
+    }
+    return false;
+  }
+
   async setLabels(agentId: string, labels: Record<string, string>): Promise<void> {
     const agent = this.requireAgent(agentId);
     await this.writeLabels(agent.id, labels);

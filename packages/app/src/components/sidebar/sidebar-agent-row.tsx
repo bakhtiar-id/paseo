@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, type ComponentType, type ReactNode } from "react";
+import { memo, useCallback, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { useArchiveAgent } from "@/hooks/use-archive-agent";
+import { isNative as platformIsNative } from "@/constants/platform";
 import { agentDoneKey, useAgentDoneStore } from "@/stores/agent-done-store";
 import { agentContextPercent, contextUsageTier } from "@/components/sidebar/sidebar-context-usage";
 
@@ -396,6 +397,13 @@ const SidebarAgentRow = memo(function SidebarAgentRow({
     ],
     [],
   );
+  // The ⋯ menu is an absolute overlay that fades in on hover — inserting it
+  // into the row flow would shift the title/meta line and the context bar.
+  // Touch platforms have no hover, so it stays visible there.
+  const [isRowHovered, setIsRowHovered] = useState(false);
+  const handleRowPointerEnter = useCallback(() => setIsRowHovered(true), []);
+  const handleRowPointerLeave = useCallback(() => setIsRowHovered(false), []);
+  const showMenu = isRowHovered || platformIsNative;
 
   const ProviderIcon = useMemo(() => themedIcon(getProviderIcon(agent.provider)), [agent.provider]);
   const modeIcon = useMemo(() => {
@@ -407,35 +415,48 @@ const SidebarAgentRow = memo(function SidebarAgentRow({
   }, [ModeIcon]);
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      onPress={handlePress}
-      style={rowStyle}
-      testID={`sidebar-agent-row-${agent.serverId}-${agent.id}`}
+    <View
+      style={styles.agentRowWrap}
+      onPointerEnter={handleRowPointerEnter}
+      onPointerLeave={handleRowPointerLeave}
     >
-      <View style={styles.providerGlyphSlot}>
-        {bucket === "needs_input" ? <PulsingHalo color={baseColors.amber[500]} size={14} /> : null}
-        <ProviderIcon size={14} uniProps={foregroundMutedIconMapping} />
-      </View>
-      <View style={styles.agentColumn}>
-        <View style={styles.agentLine}>
-          <Text style={styles.agentName} numberOfLines={1}>
-            {title}
-          </Text>
-          <AgentStatusIcon bucket={bucket} />
-          <AgentRowMenu agent={agent} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={handlePress}
+        style={rowStyle}
+        testID={`sidebar-agent-row-${agent.serverId}-${agent.id}`}
+      >
+        <View style={styles.providerGlyphSlot}>
+          {bucket === "needs_input" ? (
+            <PulsingHalo color={baseColors.amber[500]} size={14} />
+          ) : null}
+          <ProviderIcon size={14} uniProps={foregroundMutedIconMapping} />
         </View>
-        <AgentRowMetaLine
-          modelLabel={modelLabel}
-          modeLabel={modeLabel}
-          modeTier={modeTier}
-          modeIcon={modeIcon}
-          thinkingLabel={thinkingLabel}
-          contextPercent={contextPercent}
-        />
+        <View style={styles.agentColumn}>
+          <View style={styles.agentLine}>
+            <Text style={styles.agentName} numberOfLines={1}>
+              {title}
+            </Text>
+            <AgentStatusIcon bucket={bucket} />
+          </View>
+          <AgentRowMetaLine
+            modelLabel={modelLabel}
+            modeLabel={modeLabel}
+            modeTier={modeTier}
+            modeIcon={modeIcon}
+            thinkingLabel={thinkingLabel}
+            contextPercent={contextPercent}
+          />
+        </View>
+      </Pressable>
+      <View
+        style={[styles.agentMenuOverlay, showMenu ? null : styles.agentMenuOverlayHidden]}
+        pointerEvents={showMenu ? "auto" : "none"}
+      >
+        <AgentRowMenu agent={agent} />
       </View>
-    </Pressable>
+    </View>
   );
 });
 
@@ -487,6 +508,9 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing[1],
     borderLeftWidth: 1,
     borderLeftColor: theme.colors.surface2,
+  },
+  agentRowWrap: {
+    position: "relative",
   },
   agentRow: {
     position: "relative",
@@ -663,5 +687,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   rowMenuTriggerActive: {
     backgroundColor: theme.colors.surface2,
+  },
+  agentMenuOverlay: {
+    position: "absolute",
+    top: 3,
+    right: theme.spacing[2],
+    // Opaque cover matches the hovered row background so the menu reads as an
+    // overlay on the title instead of a layout change.
+    backgroundColor: theme.colors.surfaceSidebarHover,
+    borderRadius: theme.borderRadius.sm,
+  },
+  agentMenuOverlayHidden: {
+    opacity: 0,
   },
 }));
