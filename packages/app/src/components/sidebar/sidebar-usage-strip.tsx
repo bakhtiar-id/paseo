@@ -3,20 +3,42 @@ import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useShallow } from "zustand/shallow";
-import { Clock, Coins } from "lucide-react-native";
+import { ArrowDownLeft, ArrowUpRight, Clock, Coins, Database } from "lucide-react-native";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 import type { Theme } from "@/styles/theme";
 
-const foregroundMutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const ThemedCoins = withUnistyles(Coins);
 const ThemedClock = withUnistyles(Clock);
+const ThemedInput = withUnistyles(ArrowDownLeft);
+const ThemedOutput = withUnistyles(ArrowUpRight);
+const ThemedCache = withUnistyles(Database);
 
+/** Token breakdown + active time for one workspace or a whole project. */
 export interface UsageAggregate {
-  tokens: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
   runningMs: number;
 }
 
+export interface UsageBreakdown {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+}
+
 type UsageSessionRef = { agents: ReadonlyMap<string, Agent> } | undefined;
+
+function addUsage(
+  current: UsageBreakdown | undefined,
+  usage: NonNullable<Agent["cumulativeUsage"]>,
+): UsageBreakdown {
+  return {
+    inputTokens: (current?.inputTokens ?? 0) + usage.inputTokens,
+    cachedInputTokens: (current?.cachedInputTokens ?? 0) + usage.cachedInputTokens,
+    outputTokens: (current?.outputTokens ?? 0) + usage.outputTokens,
+  };
+}
 
 export function sumWorkspaceUsage(
   sessions: readonly UsageSessionRef[],
@@ -36,9 +58,9 @@ export function sumWorkspaceUsage(
       }
       const key = `${agent.serverId}:${agent.workspaceId}`;
       const current = map.get(key);
+      const tokens = addUsage(current, usage);
       map.set(key, {
-        tokens:
-          (current?.tokens ?? 0) + usage.inputTokens + usage.cachedInputTokens + usage.outputTokens,
+        ...tokens,
         runningMs: (current?.runningMs ?? 0) + usage.runningMs,
       });
     }
@@ -72,10 +94,24 @@ export function formatRunningTime(runningMs: number): string {
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }
 
+export function totalTokens(aggregate: UsageAggregate): number {
+  return aggregate.inputTokens + aggregate.cachedInputTokens + aggregate.outputTokens;
+}
+
 export function formatUsageLabel(aggregate: UsageAggregate): string | null {
+  const total = totalTokens(aggregate);
   const parts: string[] = [];
-  if (aggregate.tokens > 0) {
-    parts.push(`${formatCompactTokens(aggregate.tokens)} tokens`);
+  if (total > 0) {
+    parts.push(`${formatCompactTokens(total)} tokens total`);
+    if (aggregate.inputTokens > 0) {
+      parts.push(`${formatCompactTokens(aggregate.inputTokens)} in`);
+    }
+    if (aggregate.outputTokens > 0) {
+      parts.push(`${formatCompactTokens(aggregate.outputTokens)} out`);
+    }
+    if (aggregate.cachedInputTokens > 0) {
+      parts.push(`${formatCompactTokens(aggregate.cachedInputTokens)} cached`);
+    }
   }
   if (aggregate.runningMs > 0) {
     parts.push(formatRunningTime(aggregate.runningMs));
@@ -83,97 +119,121 @@ export function formatUsageLabel(aggregate: UsageAggregate): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+function aggregateForWorkspace(
+  workspaceKey: string,
+  sessions: readonly UsageSessionRef[],
+  filter: (key: string) => boolean,
+): UsageAggregate | null {
+  let tokens: UsageBreakdown | undefined;
+  let runningMs = 0;
+  for (const session of sessions) {
+    if (!session) {
+      continue;
+    }
+    for (const agent of session.agents.values()) {
+      if (agent.archivedAt || !agent.workspaceId) {
+        continue;
+      }
+      if (!filter(`${agent.serverId}:${agent.workspaceId}`)) {
+        continue;
+      }
+      const usage = agent.cumulativeUsage;
+      if (!usage) {
+        continue;
+      }
+      tokens = addUsage(tokens, usage);
+      runningMs += usage.runningMs;
+    }
+  }
+  return tokens ? { ...tokens, runningMs } : null;
+}
+
 /** Tokens + active time for one workspace, from live non-archived agents only. */
 export function useWorkspaceUsageAggregate(workspaceKey: string): UsageAggregate | null {
   const sessions = useSessionStore(useShallow((state) => Object.values(state.sessions)));
-  return useMemo(() => {
-    let tokens = 0;
-    let runningMs = 0;
-    let seen = false;
-    for (const session of sessions) {
-      if (!session) {
-        continue;
-      }
-      for (const agent of session.agents.values()) {
-        if (agent.archivedAt || !agent.workspaceId) {
-          continue;
-        }
-        if (`${agent.serverId}:${agent.workspaceId}` !== workspaceKey) {
-          continue;
-        }
-        const usage = agent.cumulativeUsage;
-        if (!usage) {
-          continue;
-        }
-        seen = true;
-        tokens += usage.inputTokens + usage.cachedInputTokens + usage.outputTokens;
-        runningMs += usage.runningMs;
-      }
-    }
-    return seen ? { tokens, runningMs } : null;
-  }, [sessions, workspaceKey]);
+  return useMemo(
+    () => aggregateForWorkspace(workspaceKey, sessions, (key) => key === workspaceKey),
+    [sessions, workspaceKey],
+  );
 }
 
 /** Aggregate tokens + active time across a set of workspaces (project header). */
 export function useProjectUsage(workspaceKeys: readonly string[]): UsageAggregate | null {
   const sessions = useSessionStore(useShallow((state) => Object.values(state.sessions)));
-  return useMemo(() => {
-    const keys = new Set(workspaceKeys);
-    let tokens = 0;
-    let runningMs = 0;
-    let seen = false;
-    for (const session of sessions) {
-      if (!session) {
-        continue;
-      }
-      for (const agent of session.agents.values()) {
-        if (agent.archivedAt || !agent.workspaceId) {
-          continue;
-        }
-        if (!keys.has(`${agent.serverId}:${agent.workspaceId}`)) {
-          continue;
-        }
-        const usage = agent.cumulativeUsage;
-        if (!usage) {
-          continue;
-        }
-        seen = true;
-        tokens += usage.inputTokens + usage.cachedInputTokens + usage.outputTokens;
-        runningMs += usage.runningMs;
-      }
-    }
-    return seen ? { tokens, runningMs } : null;
-  }, [sessions, workspaceKeys]);
+  const keys = useMemo(() => new Set(workspaceKeys), [workspaceKeys]);
+  return useMemo(
+    () => aggregateForWorkspace("", sessions, (key) => keys.has(key)),
+    [sessions, keys],
+  );
 }
 
-/** "Coins 248K · Clock 1h 40m" — small muted meta line for a pre-summed aggregate. */
+/**
+ * Color-coded token strip: total in foreground, then input/output/cached each in its own
+ * muted status hue so the breakdown is scannable instead of one grey wall of text.
+ */
 export function UsageSubtitle({ aggregate }: { aggregate: UsageAggregate }) {
   const label = formatUsageLabel(aggregate);
+  const total = totalTokens(aggregate);
   if (!label) {
     return null;
   }
   return (
     <View style={usageStyles.usageRow} accessibilityLabel={label}>
-      {aggregate.tokens > 0 ? (
-        <View style={usageStyles.usageSegment}>
-          <ThemedCoins size={9} uniProps={foregroundMutedIconMapping} />
-          <Text style={usageStyles.usageText}>{formatCompactTokens(aggregate.tokens)}</Text>
+      {total > 0 ? (
+        <View style={usageStyles.usageSegment} testID="usage-total">
+          <ThemedCoins size={9} uniProps={foregroundMapping} />
+          <Text style={usageStyles.totalText} numberOfLines={1}>
+            {formatCompactTokens(total)}
+          </Text>
+        </View>
+      ) : null}
+      {aggregate.inputTokens > 0 ? (
+        <View style={usageStyles.usageSegment} testID="usage-input">
+          <ThemedInput size={9} uniProps={inputColorMapping} />
+          <Text style={usageStyles.inputText} numberOfLines={1}>
+            {formatCompactTokens(aggregate.inputTokens)}
+          </Text>
+        </View>
+      ) : null}
+      {aggregate.outputTokens > 0 ? (
+        <View style={usageStyles.usageSegment} testID="usage-output">
+          <ThemedOutput size={9} uniProps={outputColorMapping} />
+          <Text style={usageStyles.outputText} numberOfLines={1}>
+            {formatCompactTokens(aggregate.outputTokens)}
+          </Text>
+        </View>
+      ) : null}
+      {aggregate.cachedInputTokens > 0 ? (
+        <View style={usageStyles.usageSegment} testID="usage-cached">
+          <ThemedCache size={9} uniProps={cachedColorMapping} />
+          <Text style={usageStyles.cachedText} numberOfLines={1}>
+            {formatCompactTokens(aggregate.cachedInputTokens)}
+          </Text>
         </View>
       ) : null}
       {aggregate.runningMs > 0 ? (
-        <View style={usageStyles.usageSegment}>
-          <ThemedClock size={9} uniProps={foregroundMutedIconMapping} />
-          <Text style={usageStyles.usageText}>{formatRunningTime(aggregate.runningMs)}</Text>
+        <View style={usageStyles.usageSegment} testID="usage-time">
+          <ThemedClock size={9} uniProps={foregroundMutedMapping} />
+          <Text style={usageStyles.timeText} numberOfLines={1}>
+            {formatRunningTime(aggregate.runningMs)}
+          </Text>
         </View>
       ) : null}
     </View>
   );
 }
 
+const foregroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+const foregroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const inputColorMapping = (theme: Theme) => ({ color: theme.colors.statusMutedWarning });
+const outputColorMapping = (theme: Theme) => ({ color: theme.colors.statusMutedMerged });
+const cachedColorMapping = (theme: Theme) => ({ color: theme.colors.statusMutedSuccess });
+
 const usageStyles = StyleSheet.create((theme) => ({
   usageRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: theme.spacing[1],
     minWidth: 0,
   },
@@ -183,7 +243,32 @@ const usageStyles = StyleSheet.create((theme) => ({
     gap: theme.spacing[1] / 2,
     flexShrink: 0,
   },
-  usageText: {
+  totalText: {
+    color: theme.colors.foreground,
+    fontSize: 9,
+    lineHeight: 12,
+    includeFontPadding: false,
+    fontWeight: theme.fontWeight.medium,
+  },
+  inputText: {
+    color: theme.colors.statusMutedWarning,
+    fontSize: 9,
+    lineHeight: 12,
+    includeFontPadding: false,
+  },
+  outputText: {
+    color: theme.colors.statusMutedMerged,
+    fontSize: 9,
+    lineHeight: 12,
+    includeFontPadding: false,
+  },
+  cachedText: {
+    color: theme.colors.statusMutedSuccess,
+    fontSize: 9,
+    lineHeight: 12,
+    includeFontPadding: false,
+  },
+  timeText: {
     color: theme.colors.foregroundMuted,
     fontSize: 9,
     lineHeight: 12,

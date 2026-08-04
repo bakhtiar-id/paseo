@@ -4,9 +4,16 @@
 import { describe, expect, it, vi } from "vitest";
 
 const theme = vi.hoisted(() => ({
-  colors: { foregroundMuted: "#666" },
+  colors: {
+    foreground: "#111",
+    foregroundMuted: "#666",
+    statusMutedWarning: "#755f45",
+    statusMutedMerged: "#6e519d",
+    statusMutedSuccess: "#496d50",
+  },
   spacing: { 1: 4, 2: 8 },
   fontSize: { xs: 12 },
+  fontWeight: { medium: "500" },
 }));
 
 vi.mock("react-native-unistyles", () => ({
@@ -20,8 +27,11 @@ vi.mock("react-native-unistyles", () => ({
 }));
 
 vi.mock("lucide-react-native", () => ({
+  ArrowDownLeft: () => null,
+  ArrowUpRight: () => null,
   Clock: () => null,
   Coins: () => null,
+  Database: () => null,
 }));
 
 import type { Agent } from "@/stores/session-store";
@@ -30,6 +40,7 @@ import {
   formatRunningTime,
   formatUsageLabel,
   sumWorkspaceUsage,
+  totalTokens,
 } from "./sidebar-usage-strip";
 
 function agent(id: string, workspaceId: string, usage: Agent["cumulativeUsage"]): Agent {
@@ -42,7 +53,7 @@ function agent(id: string, workspaceId: string, usage: Agent["cumulativeUsage"])
 }
 
 describe("sidebar-usage-strip aggregation", () => {
-  it("sums tokens and running time across agents per workspace", () => {
+  it("sums token breakdown and running time across agents per workspace", () => {
     const sessions = [
       {
         agents: new Map([
@@ -81,8 +92,18 @@ describe("sidebar-usage-strip aggregation", () => {
     ];
     sessions[0].agents.get("archived")!.archivedAt = new Date();
     const result = sumWorkspaceUsage(sessions);
-    expect(result.get("srv:ws-1")).toEqual({ tokens: 175, runningMs: 60_000 });
-    expect(result.get("srv:ws-2")).toEqual({ tokens: 15, runningMs: 30_000 });
+    expect(result.get("srv:ws-1")).toEqual({
+      inputTokens: 100,
+      cachedInputTokens: 50,
+      outputTokens: 25,
+      runningMs: 60_000,
+    });
+    expect(result.get("srv:ws-2")).toEqual({
+      inputTokens: 10,
+      cachedInputTokens: 0,
+      outputTokens: 5,
+      runningMs: 30_000,
+    });
     expect(result.get("srv:archived")).toBeUndefined();
   });
 });
@@ -100,11 +121,26 @@ describe("formatting", () => {
     expect(formatRunningTime(60 * 60 * 1000 + 5 * 60 * 1000)).toBe("1h 5m");
   });
 
-  it("builds a combined label, omitting zero parts", () => {
-    expect(formatUsageLabel({ tokens: 248_000, runningMs: 60 * 60 * 1000 + 40 * 60 * 1000 })).toBe(
-      "248K tokens · 1h 40m",
-    );
-    expect(formatUsageLabel({ tokens: 0, runningMs: 5_000 })).toBe("5s");
-    expect(formatUsageLabel({ tokens: 0, runningMs: 0 })).toBeNull();
+  it("sums the aggregate into a total", () => {
+    expect(
+      totalTokens({ inputTokens: 100, cachedInputTokens: 50, outputTokens: 25, runningMs: 0 }),
+    ).toBe(175);
+  });
+
+  it("builds a breakdown label, omitting zero parts", () => {
+    expect(
+      formatUsageLabel({
+        inputTokens: 150_000,
+        cachedInputTokens: 73_000,
+        outputTokens: 25_000,
+        runningMs: 60 * 60 * 1000 + 40 * 60 * 1000,
+      }),
+    ).toBe("248K tokens total · 150K in · 25K out · 73K cached · 1h 40m");
+    expect(
+      formatUsageLabel({ inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, runningMs: 5_000 }),
+    ).toBe("5s");
+    expect(
+      formatUsageLabel({ inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, runningMs: 0 }),
+    ).toBeNull();
   });
 });

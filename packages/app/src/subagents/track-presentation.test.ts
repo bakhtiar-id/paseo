@@ -5,6 +5,7 @@ import {
   countFinishedSubagents,
   formatHeaderLabel,
   resolveRowLabel,
+  splitSubagentTypeSuffix,
 } from "./track-presentation";
 
 function row(
@@ -89,6 +90,7 @@ describe("countFinishedSubagents", () => {
         status: "running",
         requiresAttention: false,
         createdAt: new Date("2026-04-20T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-20T00:00:00.000Z"),
       },
       {
         kind: "provider",
@@ -101,6 +103,7 @@ describe("countFinishedSubagents", () => {
         status: "failed",
         requiresAttention: true,
         createdAt: new Date("2026-04-20T00:00:01.000Z"),
+        updatedAt: new Date("2026-04-20T00:00:01.000Z"),
       },
     ];
 
@@ -186,6 +189,7 @@ describe("buildSubagentRowPresentationData for provider rows", () => {
       status: overrides.status ?? "running",
       requiresAttention: false,
       createdAt: overrides.createdAt ?? new Date("2026-07-26T00:00:00.000Z"),
+      updatedAt: overrides.updatedAt ?? new Date("2026-07-26T00:00:00.000Z"),
     };
   }
 
@@ -240,6 +244,7 @@ describe("provider-owned row subtitles", () => {
       status: "running",
       requiresAttention: false,
       createdAt: new Date("2026-07-26T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-26T00:00:00.000Z"),
       ...overrides,
     };
   }
@@ -262,5 +267,37 @@ describe("provider-owned row subtitles", () => {
         providerRow({ description: null, subtitle: null, title: "general-purpose" }),
       ).subtitle,
     ).toBe("");
+  });
+});
+
+describe("splitSubagentTypeSuffix", () => {
+  it("peels an (@type subagent) suffix into task and type", () => {
+    expect(splitSubagentTypeSuffix("Explore the repo layout (@explore subagent)")).toEqual({
+      task: "Explore the repo layout",
+      type: "explore",
+    });
+  });
+
+  it("accepts a bare (type subagent) suffix", () => {
+    expect(splitSubagentTypeSuffix("Summarize docs (general-purpose subagent)")).toEqual({
+      task: "Summarize docs",
+      type: "general-purpose",
+    });
+  });
+
+  it("leaves ordinary titles untouched", () => {
+    expect(splitSubagentTypeSuffix("general-purpose")).toEqual({
+      task: "general-purpose",
+      type: null,
+    });
+    expect(splitSubagentTypeSuffix("Fix login (fast)")).toEqual({
+      task: "Fix login (fast)",
+      type: null,
+    });
+  });
+
+  it("handles null and whitespace", () => {
+    expect(splitSubagentTypeSuffix(null)).toEqual({ task: null, type: null });
+    expect(splitSubagentTypeSuffix("   ")).toEqual({ task: "", type: null });
   });
 });

@@ -9,6 +9,7 @@ import {
   Circle,
   CircleAlert,
   CircleCheck,
+  Clock,
   CircleDot,
   CircleX,
   MoreVertical,
@@ -22,6 +23,8 @@ import { formatAgentModeLabel, formatThinkingOptionLabel } from "@/agent-control
 import { shortModelLabel } from "@/composer/agent-controls/model-sheet";
 import { formatTimeAgo } from "@/utils/time";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
+import { formatDuration } from "@/utils/time";
 import { baseColors, type Theme } from "@/styles/theme";
 import { PulsingHalo } from "@/components/ui/pulsing-dot";
 import { SyncedLoader } from "@/components/synced-loader";
@@ -38,6 +41,13 @@ import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { isNative as platformIsNative } from "@/constants/platform";
 import { agentDoneKey, useAgentDoneStore } from "@/stores/agent-done-store";
 import { agentContextPercent, contextUsageTier } from "@/components/sidebar/sidebar-context-usage";
+import { UsageSubtitle } from "@/components/sidebar/sidebar-usage-strip";
+import { useProviderSubagentsForParent, type ProviderSubagentRow } from "@/subagents/select";
+import {
+  buildSubagentRowPresentationData,
+  splitSubagentTypeSuffix,
+} from "@/subagents/track-presentation";
+import { useCompactTimeAgo } from "@/hooks/use-compact-time-ago";
 
 const AGENT_ROW_CAP = 4;
 const EMPTY_AGENTS: Agent[] = [];
@@ -75,6 +85,7 @@ const ThemedCircleX = withUnistyles(CircleX);
 const ThemedCircleDot = withUnistyles(CircleDot);
 const ThemedCircle = withUnistyles(Circle);
 const ThemedSyncedLoader = withUnistyles(SyncedLoader);
+const ThemedClock = withUnistyles(Clock);
 const amberIconMapping = () => ({ color: baseColors.amber[500] });
 const redIconMapping = () => ({ color: baseColors.red[500] });
 const greenIconMapping = () => ({ color: baseColors.green[500] });
@@ -448,6 +459,11 @@ const SidebarAgentRow = memo(function SidebarAgentRow({
             thinkingLabel={thinkingLabel}
             contextPercent={contextPercent}
           />
+          {agent.cumulativeUsage ? (
+            <View style={styles.agentUsageLine}>
+              <UsageSubtitle aggregate={agent.cumulativeUsage} />
+            </View>
+          ) : null}
         </View>
       </Pressable>
       <View
@@ -459,6 +475,129 @@ const SidebarAgentRow = memo(function SidebarAgentRow({
     </View>
   );
 });
+
+function ProviderSubagentRowView({
+  serverId,
+  row,
+  onPress,
+}: {
+  serverId: string;
+  row: ProviderSubagentRow;
+  onPress: (subagentId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const presentation = useMemo(() => buildSubagentRowPresentationData(row), [row]);
+  const ProviderIcon = useMemo(() => themedIcon(getProviderIcon(row.provider)), [row.provider]);
+  const parsed = useMemo(() => splitSubagentTypeSuffix(row.title), [row.title]);
+
+  // Total runtime: for a finished subagent, the run's wall-clock span is fixed at
+  // completion (updatedAt - createdAt); for a running one, we tick elapsed.
+  const isFinished = row.status !== "running";
+  const totalElapsed = isFinished
+    ? formatDuration(row.updatedAt.getTime() - row.createdAt.getTime())
+    : "";
+  const runningElapsed = useCompactTimeAgo(isFinished ? null : row.createdAt);
+
+  // presentation.subtitle carries provider preformatted context when present
+  // (which already includes the type for Claude), or the bare type when only a
+  // title is known, or "" when nothing is.
+  const contextLabel = presentation.subtitle || null;
+  const descriptionLabel = row.description?.trim() || null;
+
+  const label = descriptionLabel ?? parsed.task ?? contextLabel;
+  const contextPart =
+    // parsed.type only appears for OpenCode-style "(@type subagent)" titles —
+    // Claude-style subtitles already embed the type, so don't double it.
+    contextLabel ?? parsed.type;
+  const timePart = isFinished ? totalElapsed : runningElapsed;
+
+  const handlePress = useCallback(() => {
+    onPress(row.id);
+  }, [onPress, row.id]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label || t("agentList.fallbackTitle")}
+      onPress={handlePress}
+      testID={`sidebar-provider-subagent-row-${serverId}-${row.parentAgentId}-${row.id}`}
+      style={styles.providerSubagentRow}
+    >
+      <View style={styles.providerSubagentGlyphSlot}>
+        <ProviderIcon size={12} uniProps={foregroundMutedIconMapping} />
+      </View>
+      <View style={styles.providerSubagentColumn}>
+        <View style={styles.agentLine}>
+          <Text style={styles.providerSubagentName} numberOfLines={1}>
+            {label}
+          </Text>
+          {presentation.statusBucket ? (
+            <AgentStatusIcon bucket={presentation.statusBucket} />
+          ) : null}
+        </View>
+        {contextPart || timePart ? (
+          <View style={styles.providerSubagentSubline}>
+            {contextPart ? (
+              <Text style={styles.providerSubagentSubtitle} numberOfLines={1}>
+                {contextPart}
+              </Text>
+            ) : null}
+            {timePart ? (
+              <View style={styles.providerSubagentTimeChip}>
+                <ThemedClock size={9} uniProps={foregroundMutedIconMapping} />
+                <Text style={styles.providerSubagentSubtitle} numberOfLines={1}>
+                  {timePart}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function SidebarProviderSubagentRows({
+  serverId,
+  parentAgentId,
+  onWorkspacePress,
+}: {
+  serverId: string;
+  parentAgentId: string;
+  onWorkspacePress?: () => void;
+}) {
+  const rows = useProviderSubagentsForParent({ serverId, parentAgentId });
+  const handlePress = useCallback(
+    (subagentId: string) => {
+      onWorkspacePress?.();
+      const workspaceId =
+        useSessionStore.getState().sessions[serverId]?.agents.get(parentAgentId)?.workspaceId ??
+        null;
+      if (workspaceId) {
+        navigateToWorkspace({
+          serverId,
+          workspaceId,
+          target: { kind: "provider_subagent", parentAgentId, subagentId },
+        });
+        return;
+      }
+      navigateToAgent({ serverId, agentId: parentAgentId });
+    },
+    [onWorkspacePress, serverId, parentAgentId],
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.agentGroup} testID={`sidebar-subagent-group-${serverId}-${parentAgentId}`}>
+      {rows.map((row) => (
+        <ProviderSubagentRowView key={row.id} serverId={serverId} row={row} onPress={handlePress} />
+      ))}
+    </View>
+  );
+}
 
 export function SidebarWorkspaceAgentRows({
   serverId,
@@ -483,11 +622,14 @@ export function SidebarWorkspaceAgentRows({
   return (
     <View style={styles.agentGroup}>
       {visibleItems.map((agent) => (
-        <SidebarAgentRow
-          key={`${serverId}:${agent.id}`}
-          agent={agent}
-          onWorkspacePress={onWorkspacePress}
-        />
+        <View key={`${serverId}:${agent.id}`}>
+          <SidebarAgentRow agent={agent} onWorkspacePress={onWorkspacePress} />
+          <SidebarProviderSubagentRows
+            serverId={serverId}
+            parentAgentId={agent.id}
+            onWorkspacePress={onWorkspacePress}
+          />
+        </View>
       ))}
       {canToggle ? (
         <SidebarGroupToggleRow
@@ -561,6 +703,60 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[1],
     minWidth: 0,
+  },
+  agentUsageLine: {
+    marginTop: 2,
+    minWidth: 0,
+  },
+  providerSubagentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing[1.5],
+    marginLeft: theme.spacing[3] + 2,
+    marginRight: theme.spacing[1],
+    marginBottom: 1,
+    paddingVertical: theme.spacing[1],
+    paddingLeft: theme.spacing[2],
+    paddingRight: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
+    userSelect: "none",
+  },
+  providerSubagentGlyphSlot: {
+    width: theme.iconSize.xs,
+    height: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  providerSubagentColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  providerSubagentName: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 14,
+    flex: 1,
+    minWidth: 0,
+  },
+  providerSubagentSubtitle: {
+    color: theme.colors.foregroundExtraMuted,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  providerSubagentSubline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    minWidth: 0,
+  },
+  providerSubagentTimeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1] / 2,
+    flexShrink: 0,
   },
   agentModel: {
     color: theme.colors.foregroundMuted,

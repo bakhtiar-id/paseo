@@ -71,3 +71,20 @@ export function resolveRowLabel(title: string | null | undefined): string | null
   }
   return normalized;
 }
+
+const SUBAGENT_TYPE_SUFFIX = /^(?<task>\S.*?)\s*\(@?(?<type>[\w-]+) subagent\)\s*$/;
+
+// OpenCode bakes the task and the subagent type into one title ("Describe the bug
+// (@explore subagent)"); Claude/OMP keep them split (title = type, description = task).
+// Peel the suffix off so the main label can show just the task and the subtext row the
+// type, never rendering the same string twice.
+export function splitSubagentTypeSuffix(title: string | null): {
+  task: string | null;
+  type: string | null;
+} {
+  if (!title) return { task: null, type: null };
+  const trimmed = title.trim();
+  const match = SUBAGENT_TYPE_SUFFIX.exec(trimmed);
+  if (!match?.groups) return { task: trimmed, type: null };
+  return { task: match.groups.task, type: match.groups.type };
+}

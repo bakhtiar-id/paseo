@@ -34,6 +34,7 @@ export interface ProviderSubagentRow {
   status: ProviderSubagentDescriptorPayload["status"];
   requiresAttention: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export type SubagentRow = PaseoSubagentRow | ProviderSubagentRow;
@@ -114,19 +115,16 @@ export function selectProviderSubagentsForParent(
       status: subagent.status,
       requiresAttention: subagent.status === "failed",
       createdAt: new Date(subagent.createdAt),
+      updatedAt: new Date(subagent.updatedAt),
     });
   }
   rows.sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
   return rows;
 }
 
-export function useSubagentsForParent(params: SelectSubagentsParams): SubagentRow[] {
-  const pendingArchiveIds = usePendingArchiveAgentIds(params.serverId);
-  const paseoRows = useStoreWithEqualityFn(
-    useSessionStore,
-    (state) => selectSubagentsForParent(state, params, pendingArchiveIds),
-    equal,
-  );
+export function useProviderSubagentsForParent(
+  params: SelectSubagentsParams,
+): ProviderSubagentRow[] {
   const supported = useSessionStore(
     (state) => state.sessions[params.serverId]?.serverInfo?.features?.providerSubagents === true,
   );
@@ -143,6 +141,17 @@ export function useSubagentsForParent(params: SelectSubagentsParams): SubagentRo
       () => undefined,
     );
   }, [client, params.parentAgentId, params.serverId, supported]);
+  return providerRows;
+}
+
+export function useSubagentsForParent(params: SelectSubagentsParams): SubagentRow[] {
+  const pendingArchiveIds = usePendingArchiveAgentIds(params.serverId);
+  const paseoRows = useStoreWithEqualityFn(
+    useSessionStore,
+    (state) => selectSubagentsForParent(state, params, pendingArchiveIds),
+    equal,
+  );
+  const providerRows = useProviderSubagentsForParent(params);
 
   return useMemo(() => {
     if (providerRows.length === 0) return paseoRows;
