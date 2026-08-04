@@ -388,7 +388,7 @@ export const fr: TranslationResources = {
       openFile: "Ouvrir le fichier",
       copyPath: "Copier le chemin",
       download: "Télécharger",
-      addToChat: "Ajouter au chat…",
+      addToChat: "Ajouter au chat",
       moreActions: "Plus de propositions",
     },
     fileExplorer: {
@@ -865,6 +865,14 @@ export const fr: TranslationResources = {
           viewPullRequest: "Voir",
           openOn: "Ouvrir sur {{brand}}",
         },
+        checksSummary: {
+          passedLabel: "succès",
+          failedLabel: "échec",
+          runningLabel: "en cours",
+          passedAccessible: "Vérifications réussies",
+          failedAccessible: "Vérifications en échec",
+          runningAccessible: "Vérifications en cours",
+        },
         sections: {
           checks: "Chèques",
           pipeline: "Pipeline",
@@ -922,16 +930,32 @@ export const fr: TranslationResources = {
     moreProviders: "+{{count}}",
   },
   sidebar: {
-    displayPreferences: "Préférences d'affichage",
-    displayPreferencesMenu: {
-      groupBy: "Grouper par",
-      project: "Projet",
-      status: "Statut",
-      filter: "Filtrer",
-      allHosts: "Tous les hôtes",
-      workspaceTitle: "Titre de l’espace de travail",
-      title: "Titre",
-      branchName: "Nom de la branche",
+    display: {
+      trigger: "Préférences d'affichage",
+      heading: "Affichage",
+      grouping: {
+        label: "Regroupement",
+        project: "Projet",
+        status: "Statut",
+      },
+      titleSource: {
+        label: "Titre",
+        title: "Titre",
+        branch: "Nom de branche",
+      },
+      show: {
+        label: "Afficher",
+        host: "Hôte",
+        changeRequest: "Pull request",
+        checks: "Vérifications",
+        scripts: "Scripts",
+        diff: "Statistiques de diff",
+        timestamp: "Dernière activité",
+      },
+      hostFilter: {
+        label: "Hôte",
+        all: "Tous les hôtes",
+      },
     },
     pinned: {
       title: "Épinglés",
