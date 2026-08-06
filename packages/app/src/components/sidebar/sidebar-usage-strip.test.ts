@@ -93,7 +93,7 @@ describe("sidebar-usage-strip aggregation", () => {
     sessions[0].agents.get("archived")!.archivedAt = new Date();
     const result = sumWorkspaceUsage(sessions);
     expect(result.get("srv:ws-1")).toEqual({
-      inputTokens: 100,
+      inputTokens: 1099,
       cachedInputTokens: 50,
       outputTokens: 25,
       runningMs: 60_000,

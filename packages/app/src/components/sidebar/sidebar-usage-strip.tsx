@@ -49,7 +49,7 @@ export function sumWorkspaceUsage(
       continue;
     }
     for (const agent of session.agents.values()) {
-      if (agent.archivedAt || !agent.workspaceId) {
+      if (!agent.workspaceId) {
         continue;
       }
       const usage = agent.cumulativeUsage;
@@ -131,7 +131,7 @@ function aggregateForWorkspace(
       continue;
     }
     for (const agent of session.agents.values()) {
-      if (agent.archivedAt || !agent.workspaceId) {
+      if (!agent.workspaceId) {
         continue;
       }
       if (!filter(`${agent.serverId}:${agent.workspaceId}`)) {
@@ -148,7 +148,7 @@ function aggregateForWorkspace(
   return tokens ? { ...tokens, runningMs } : null;
 }
 
-/** Tokens + active time for one workspace, from live non-archived agents only. */
+/** Tokens + active time for one workspace, from all agents (archived included). */
 export function useWorkspaceUsageAggregate(workspaceKey: string): UsageAggregate | null {
   const sessions = useSessionStore(useShallow((state) => Object.values(state.sessions)));
   return useMemo(
