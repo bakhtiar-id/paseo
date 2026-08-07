@@ -41,7 +41,7 @@ import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { isNative as platformIsNative } from "@/constants/platform";
 import { agentDoneKey, useAgentDoneStore } from "@/stores/agent-done-store";
 import { agentContextPercent, contextUsageTier } from "@/components/sidebar/sidebar-context-usage";
-import { UsageSubtitle } from "@/components/sidebar/sidebar-usage-strip";
+import { useLiveAgentUsage, UsageSubtitle } from "@/components/sidebar/sidebar-usage-strip";
 import { useProviderSubagentsForParent, type ProviderSubagentRow } from "@/subagents/select";
 import {
   buildSubagentRowPresentationData,
@@ -384,6 +384,7 @@ const SidebarAgentRow = memo(function SidebarAgentRow({
 
   const modelLabel = agent.model ? shortModelLabel(agent.model) : null;
   const contextPercent = agentContextPercent(agent);
+  const usage = useLiveAgentUsage(agent);
 
   const accessibilityLabel = [
     title,
@@ -459,9 +460,9 @@ const SidebarAgentRow = memo(function SidebarAgentRow({
             thinkingLabel={thinkingLabel}
             contextPercent={contextPercent}
           />
-          {agent.cumulativeUsage ? (
+          {usage ? (
             <View style={styles.agentUsageLine}>
-              <UsageSubtitle aggregate={agent.cumulativeUsage} />
+              <UsageSubtitle aggregate={usage} />
             </View>
           ) : null}
         </View>

@@ -35,12 +35,17 @@ vi.mock("lucide-react-native", () => ({
 }));
 
 import type { Agent, ProjectDescriptor } from "@/stores/session-store";
+import {
+  mergeProjectUsageTotals,
+  type ProjectUsageTotals,
+} from "@/stores/project-usage-ledger-store";
 import type { SidebarProjectEntry } from "@/hooks/use-sidebar-workspaces-list";
 import {
   aggregateProjectUsage,
   formatCompactTokens,
   formatRunningTime,
   formatUsageLabel,
+  liveRunningMs,
   sumWorkspaceUsage,
   totalTokens,
 } from "./sidebar-usage-strip";
@@ -52,7 +57,8 @@ function agent(id: string, workspaceId: string, usage: Agent["cumulativeUsage"])
     serverId: "srv",
     workspaceId,
     archivedAt: archived ? new Date() : null,
-    projectPlacement: archived ? { projectKey: "remote:github.com/acme/repo" } : null,
+    // The daemon sets a placement's projectKey to the host-local project id.
+    projectPlacement: archived ? { projectKey: "proj-1" } : null,
     cumulativeUsage: usage,
   } as Agent;
 }
@@ -170,11 +176,68 @@ describe("aggregateProjectUsage", () => {
       agent("a", "ws-1", usage({ inputTokens: 100 })),
       {
         ...agent("archived-other", "ws-other", usage({ inputTokens: 500 })),
-        projectPlacement: { projectKey: "remote:github.com/other/repo" },
+        projectPlacement: { projectKey: "proj-2" },
       } as Agent,
     ]);
     const result = aggregateProjectUsage(sessions, project);
     expect(result?.inputTokens).toBe(100);
+  });
+});
+
+describe("mergeProjectUsageTotals", () => {
+  const totals = (inputTokens: number, runningMs = 0): ProjectUsageTotals => ({
+    inputTokens,
+    cachedInputTokens: 0,
+    outputTokens: 0,
+    runningMs,
+  });
+
+  it("holds the stored high-water mark when the project drops to nothing", () => {
+    expect(mergeProjectUsageTotals(totals(1000, 60_000), null)).toEqual(totals(1000, 60_000));
+  });
+
+  it("never decreases a field when the observed aggregate shrinks", () => {
+    expect(mergeProjectUsageTotals(totals(1000, 60_000), totals(100, 90_000))).toEqual(
+      totals(1000, 90_000),
+    );
+  });
+
+  it("returns the observed aggregate when nothing is stored yet", () => {
+    expect(mergeProjectUsageTotals(undefined, totals(100))).toEqual(totals(100));
+    expect(mergeProjectUsageTotals(undefined, null)).toBeNull();
+  });
+});
+
+describe("liveRunningMs", () => {
+  const NOW = Date.parse("2026-05-15T00:00:10.000Z");
+  const running = (overrides: Partial<Agent> = {}): Agent =>
+    ({
+      id: "a",
+      serverId: "srv",
+      status: "running",
+      activeTurn: { turnId: "t", startedAt: new Date(NOW - 12_000) },
+      ...overrides,
+    }) as Agent;
+
+  it("counts elapsed time for a running agent since its turn started", () => {
+    expect(liveRunningMs(running(), NOW)).toBe(12_000);
+  });
+
+  it("stays zero for idle agents even when a past start exists", () => {
+    expect(liveRunningMs(running({ status: "idle" }), NOW)).toBe(0);
+  });
+
+  it("returns zero when a running agent has no active turn start", () => {
+    expect(liveRunningMs(running({ activeTurn: { turnId: "t", startedAt: null } }), NOW)).toBe(0);
+  });
+
+  it("clamps a future start time to zero", () => {
+    expect(
+      liveRunningMs(
+        running({ activeTurn: { turnId: "t", startedAt: new Date(NOW + 5_000) } }),
+        NOW,
+      ),
+    ).toBe(0);
   });
 });
 
