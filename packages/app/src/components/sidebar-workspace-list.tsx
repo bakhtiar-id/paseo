@@ -1971,9 +1971,7 @@ function ProjectBlock({
       }),
     [collapsed, project, supportsMultiplicityByServerId],
   );
-  const projectUsage = useProjectUsage(
-    project.workspaces.map((workspace) => workspace.workspaceKey),
-  );
+  const projectUsage = useProjectUsage(project);
 
   // Per-bucket counts feed the animated status pills on the project row, so a
   // project always shows what's running or waiting even when collapsed. Count

@@ -34,8 +34,10 @@ vi.mock("lucide-react-native", () => ({
   Database: () => null,
 }));
 
-import type { Agent } from "@/stores/session-store";
+import type { Agent, ProjectDescriptor } from "@/stores/session-store";
+import type { SidebarProjectEntry } from "@/hooks/use-sidebar-workspaces-list";
 import {
+  aggregateProjectUsage,
   formatCompactTokens,
   formatRunningTime,
   formatUsageLabel,
@@ -44,10 +46,13 @@ import {
 } from "./sidebar-usage-strip";
 
 function agent(id: string, workspaceId: string, usage: Agent["cumulativeUsage"]): Agent {
+  const archived = id.startsWith("archived");
   return {
     id,
     serverId: "srv",
     workspaceId,
+    archivedAt: archived ? new Date() : null,
+    projectPlacement: archived ? { projectKey: "remote:github.com/acme/repo" } : null,
     cumulativeUsage: usage,
   } as Agent;
 }
@@ -105,6 +110,71 @@ describe("sidebar-usage-strip aggregation", () => {
       runningMs: 30_000,
     });
     expect(result.get("srv:archived")).toBeUndefined();
+  });
+});
+
+describe("aggregateProjectUsage", () => {
+  const projectKey = "remote:github.com/acme/repo";
+
+  function usage(
+    input: { inputTokens?: number; runningMs?: number } = {},
+  ): NonNullable<Agent["cumulativeUsage"]> {
+    return {
+      inputTokens: input.inputTokens ?? 0,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      runningMs: input.runningMs ?? 0,
+    };
+  }
+
+  function buildSessions(agents: Agent[]): Array<{
+    serverId: string;
+    projects: Map<string, ProjectDescriptor>;
+    agents: Map<string, Agent>;
+  }> {
+    return [
+      {
+        serverId: "srv",
+        projects: new Map([["proj-1", { projectId: "proj-1", projectKey } as ProjectDescriptor]]),
+        agents: new Map(agents.map((entry) => [entry.id, entry])),
+      },
+    ];
+  }
+
+  const project = {
+    viewKey: projectKey,
+    projectName: "repo",
+    projectKind: "git",
+    iconWorkingDir: "/repo",
+    hosts: [{ serverId: "srv", projectId: "proj-1", iconWorkingDir: "/repo" }],
+    workspaces: [{ workspaceKey: "srv:ws-1", serverId: "srv", workspaceId: "ws-1" }],
+  } as unknown as SidebarProjectEntry;
+
+  it("keeps archived agents of the project in the aggregate", () => {
+    const sessions = buildSessions([
+      agent("a", "ws-1", usage({ inputTokens: 100, runningMs: 60_000 })),
+      agent("archived-1", "ws-archived-1", usage({ inputTokens: 900 })),
+    ]);
+    const result = aggregateProjectUsage(sessions, project);
+    expect(result).toEqual({
+      inputTokens: 1000,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      runningMs: 60_000,
+    });
+  });
+
+  it("excludes archived agents of a different project", () => {
+    const sessions = buildSessions([
+      agent("a", "ws-1", usage({ inputTokens: 100 })),
+      {
+        ...agent("archived-other", "ws-other", usage({ inputTokens: 500 })),
+        projectPlacement: { projectKey: "remote:github.com/other/repo" },
+      } as Agent,
+    ]);
+    const result = aggregateProjectUsage(sessions, project);
+    expect(result?.inputTokens).toBe(100);
   });
 });
 

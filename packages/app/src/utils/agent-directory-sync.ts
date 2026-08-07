@@ -107,7 +107,13 @@ export function removeAgentDirectoryReplica(serverId: string, agentId: string): 
     next.delete(agentId);
     return next;
   };
-  store.setAgents(serverId, removeKey);
+  const retainedAgent = store.sessions[serverId]?.agents.get(agentId);
+  // Keep archived agents in the agents map: the active-scoped directory drops
+  // them once a workspace is archived, but their cumulative usage must keep
+  // counting toward sidebar aggregates for as long as the project lives.
+  if (!retainedAgent?.archivedAt) {
+    store.setAgents(serverId, removeKey);
+  }
   store.setAgentDetails(serverId, removeKey);
   store.setQueuedMessages(serverId, removeKey);
   store.setAgentTimelineCursor(serverId, removeKey);
@@ -181,6 +187,17 @@ export function replaceFetchedAgentDirectory(input: {
 }): { agents: Map<string, Agent> } {
   const { agents: fetchedAgents, pendingPermissions } = buildAgentDirectoryState(input);
   const store = useSessionStore.getState();
+  // A full directory replacement must not evict previously-retained archived
+  // agents (see removeAgentDirectoryReplica): their usage still belongs in the
+  // sidebar aggregates until their project is gone.
+  const currentAgents = store.sessions[input.serverId]?.agents;
+  if (currentAgents) {
+    for (const [agentId, agent] of currentAgents) {
+      if (agent.archivedAt && !fetchedAgents.has(agentId)) {
+        fetchedAgents.set(agentId, agent);
+      }
+    }
+  }
   for (const agent of fetchedAgents.values()) {
     if (agent.archivedAt) {
       clearArchiveAgentPending({ queryClient, serverId: input.serverId, agentId: agent.id });

@@ -4,7 +4,8 @@ import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useShallow } from "zustand/shallow";
 import { ArrowDownLeft, ArrowUpRight, Clock, Coins, Database } from "lucide-react-native";
-import { useSessionStore, type Agent } from "@/stores/session-store";
+import { useSessionStore, type Agent, type SessionState } from "@/stores/session-store";
+import type { SidebarProjectEntry } from "@/hooks/use-sidebar-workspaces-list";
 import type { Theme } from "@/styles/theme";
 
 const ThemedCoins = withUnistyles(Coins);
@@ -28,6 +29,8 @@ export interface UsageBreakdown {
 }
 
 type UsageSessionRef = { agents: ReadonlyMap<string, Agent> } | undefined;
+
+type ProjectUsageSession = Pick<SessionState, "serverId" | "projects" | "agents">;
 
 function addUsage(
   current: UsageBreakdown | undefined,
@@ -119,10 +122,9 @@ export function formatUsageLabel(aggregate: UsageAggregate): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function aggregateForWorkspace(
-  workspaceKey: string,
+function aggregateAgents(
   sessions: readonly UsageSessionRef[],
-  filter: (key: string) => boolean,
+  matches: (agent: Agent) => boolean,
 ): UsageAggregate | null {
   let tokens: UsageBreakdown | undefined;
   let runningMs = 0;
@@ -131,10 +133,7 @@ function aggregateForWorkspace(
       continue;
     }
     for (const agent of session.agents.values()) {
-      if (!agent.workspaceId) {
-        continue;
-      }
-      if (!filter(`${agent.serverId}:${agent.workspaceId}`)) {
+      if (!matches(agent)) {
         continue;
       }
       const usage = agent.cumulativeUsage;
@@ -152,19 +151,56 @@ function aggregateForWorkspace(
 export function useWorkspaceUsageAggregate(workspaceKey: string): UsageAggregate | null {
   const sessions = useSessionStore(useShallow((state) => Object.values(state.sessions)));
   return useMemo(
-    () => aggregateForWorkspace(workspaceKey, sessions, (key) => key === workspaceKey),
+    () =>
+      aggregateAgents(
+        sessions,
+        (agent) =>
+          agent.workspaceId != null && `${agent.serverId}:${agent.workspaceId}` === workspaceKey,
+      ),
     [sessions, workspaceKey],
   );
 }
 
-/** Aggregate tokens + active time across a set of workspaces (project header). */
-export function useProjectUsage(workspaceKeys: readonly string[]): UsageAggregate | null {
+/**
+ * Aggregate tokens + active time across a project's workspaces, from all agents
+ * (archived included). Archived workspaces keep counting for as long as their
+ * project lives: their agents are retained in the session store after archive,
+ * and are matched back to the project by project key — the same server-derived
+ * key the sidebar project carries on its hosts.
+ */
+export function aggregateProjectUsage(
+  sessions: readonly ProjectUsageSession[],
+  project: SidebarProjectEntry,
+): UsageAggregate | null {
+  const projectKeys = new Set<string>();
+  for (const host of project.hosts) {
+    const session = sessions.find((candidate) => candidate?.serverId === host.serverId);
+    const descriptor = session?.projects.get(host.projectId);
+    if (descriptor?.projectKey) {
+      projectKeys.add(descriptor.projectKey);
+    }
+  }
+  const workspaceKeys = new Set(project.workspaces.map((workspace) => workspace.workspaceKey));
+  return aggregateAgents(sessions, (agent) => {
+    if (!agent.workspaceId) {
+      return false;
+    }
+    if (workspaceKeys.has(`${agent.serverId}:${agent.workspaceId}`)) {
+      return true;
+    }
+    return (
+      agent.archivedAt != null &&
+      projectKeys.size > 0 &&
+      agent.projectPlacement?.projectKey != null &&
+      projectKeys.has(agent.projectPlacement.projectKey)
+    );
+  });
+}
+
+/** Aggregate tokens + active time across a project (project header). */
+export function useProjectUsage(project: SidebarProjectEntry): UsageAggregate | null {
   const sessions = useSessionStore(useShallow((state) => Object.values(state.sessions)));
-  const keys = useMemo(() => new Set(workspaceKeys), [workspaceKeys]);
-  return useMemo(
-    () => aggregateForWorkspace("", sessions, (key) => keys.has(key)),
-    [sessions, keys],
-  );
+  return useMemo(() => aggregateProjectUsage(sessions, project), [project, sessions]);
 }
 
 /**
