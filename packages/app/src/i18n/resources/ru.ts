@@ -81,9 +81,11 @@ export const ru: TranslationResources = {
       desktop: "Напишите агенту сообщение, отметьте @files или используйте /commands и /skills.",
       mobile: "Сообщение,@files,/commands",
       fallback: "Сообщение...",
+      terminal: "Prompt",
     },
     input: {
       accessibilityLabel: "Агент сообщений...",
+      terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}, чтобы сосредоточиться",
       addAttachment: "Добавить вложение",
       interruptAgent: "Агент прерываний",
@@ -205,7 +207,7 @@ export const ru: TranslationResources = {
     states: {
       notFound: "Agent не найден",
       failedToLoad: "Не удалось загрузить агент",
-      reconnecting: "Повторное подключение...",
+      reconnecting: "Повторное подключение",
       timelineSyncFailed: "Не удалось обновить историю агента. Повторная попытка…",
       archivingTitle: "Архивный агент...",
       archivingSubtitle: "Пожалуйста, подождите, пока мы архивируем этого агента.",
@@ -940,9 +942,14 @@ export const ru: TranslationResources = {
         host: "Хост",
         changeRequest: "Pull request",
         checks: "Проверки",
-        scripts: "Скрипты",
+        services: "Сервисы",
         diff: "Статистика изменений",
         timestamp: "Последняя активность",
+      },
+      checks: {
+        iconAndText: "Значок и текст",
+        icon: "Только значок",
+        none: "Скрыто",
       },
       hostFilter: {
         label: "Хост",
@@ -1046,7 +1053,8 @@ export const ru: TranslationResources = {
     },
     workspace: {
       status: {
-        scriptsAvailable: "Доступны скрипты",
+        serviceRunning: "Сервис {{name}} запущен",
+        serviceUnhealthy: "Сервис {{name}} неисправен",
         creating: "Создание...",
       },
       actions: {
@@ -1108,14 +1116,29 @@ export const ru: TranslationResources = {
       composerStateRequired: "Требуется состояние композитора.",
       selectModel: "Выберите модель",
     },
+    tooltips: {
+      project: "Choose the project",
+      host: "Choose the host",
+      isolation: "Choose the isolation level",
+      startingRef: "Выберите, с чего начать",
+      launch: "Choose what to launch",
+    },
     refPicker: {
       startingRef: "Начальная ссылка",
-      chooseStart: "Выберите, с чего начать",
       intoBase: "в {{baseRef}}",
       searching: "Идет поиск...",
       noMatchingRefs: "Нет подходящих ссылок.",
       searchPlaceholder: "Поиск филиалов и PR",
       title: "Начать с",
+    },
+    launch: {
+      title: "What to launch",
+      chat: "Chat",
+      terminal: "Terminal",
+      manageProfiles: "Manage profiles",
+      submit: "Launch",
+      promptPlaceholder: "Prompt {{name}}",
+      commandPlaceholder: "Run a command, or leave empty for a blank terminal",
     },
   },
   desktop: {
@@ -1471,6 +1494,19 @@ export const ru: TranslationResources = {
         show: "Показать расширенные",
         hide: "Скрыть расширенные",
       },
+      headers: {
+        title: "Пользовательские заголовки",
+        add: "Добавить заголовок",
+        name: "Имя",
+        value: "Значение",
+        remove: "Удалить заголовок",
+        errors: {
+          missingName: "Введите имя для каждого заголовка",
+          invalidName: "{{name}} — недопустимое имя заголовка",
+          invalidValue: "{{name}} содержит недопустимый перенос строки",
+          duplicateName: "{{name}} введён несколько раз",
+        },
+      },
       passwordVisibility: {
         show: "Показать пароль",
         hide: "Скрыть пароль",
@@ -1819,6 +1855,7 @@ export const ru: TranslationResources = {
           es: "Español",
           fr: "Français",
           ja: "日本語",
+          ko: "한국어",
           ptBR: "Português brasileiro",
           ru: "Русский",
           zhCN: "中文",

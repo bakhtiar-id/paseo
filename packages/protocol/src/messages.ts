@@ -257,9 +257,11 @@ export const AgentFeatureSchema = z.discriminatedUnion("type", [
   AgentFeatureSelectSchema,
 ]);
 
-const AgentModelDefinitionSchema: z.ZodType<AgentModelDefinition> = z.object({
+const AgentModelDefinitionSchema = z.object({
   provider: AgentProviderSchema,
   id: z.string(),
+  aliases: z.array(z.string()).optional(),
+  isSelectable: z.boolean().optional(),
   label: z.string(),
   description: z.string().optional(),
   isDefault: z.boolean().optional(),
@@ -267,7 +269,7 @@ const AgentModelDefinitionSchema: z.ZodType<AgentModelDefinition> = z.object({
   contextWindowMaxTokens: z.number().optional(),
   thinkingOptions: z.array(AgentSelectOptionSchema).optional(),
   defaultThinkingOptionId: z.string().optional(),
-});
+}) satisfies z.ZodType<AgentModelDefinition>;
 
 export const ProviderSnapshotEntrySchema = z.object({
   provider: AgentProviderSchema,
@@ -281,6 +283,29 @@ export const ProviderSnapshotEntrySchema = z.object({
   label: z.string().optional(),
   description: z.string().optional(),
   defaultModeId: z.string().nullable().optional(),
+});
+
+export const CompactProviderSnapshotModelSchema = AgentModelDefinitionSchema.omit({
+  provider: true,
+  thinkingOptions: true,
+}).extend({
+  thinkingSet: z.number().int().nonnegative().optional(),
+});
+
+export const ProviderSnapshotThinkingSetSchema = z.object({
+  options: z.array(AgentSelectOptionSchema),
+  defaultOptionId: z.string().optional(),
+});
+
+export const CompactProviderSnapshotEntrySchema = ProviderSnapshotEntrySchema.omit({
+  models: true,
+}).extend({
+  models: z.array(CompactProviderSnapshotModelSchema).optional(),
+});
+
+export const CompactProviderSnapshotSchema = z.object({
+  entries: z.array(CompactProviderSnapshotEntrySchema),
+  thinkingSets: z.array(ProviderSnapshotThinkingSetSchema),
 });
 
 const AgentCapabilityFlagsSchema: z.ZodType<AgentCapabilityFlags> = z
@@ -1336,6 +1361,8 @@ export const ListAvailableProvidersRequestMessageSchema = z.object({
 export const GetProvidersSnapshotRequestMessageSchema = z.object({
   type: z.literal("get_providers_snapshot_request"),
   cwd: z.string().optional(),
+  // COMPAT(compactProviderSnapshots): old daemons ignore this field and return a full snapshot.
+  ifNoneMatch: z.string().optional(),
   requestId: z.string(),
 });
 
@@ -4966,6 +4993,9 @@ export const GetProvidersSnapshotResponseMessageSchema = z.object({
   type: z.literal("get_providers_snapshot_response"),
   payload: z.object({
     entries: z.array(ProviderSnapshotEntrySchema),
+    compactSnapshot: CompactProviderSnapshotSchema.optional(),
+    snapshotHash: z.string().optional(),
+    notModified: z.boolean().optional(),
     generatedAt: z.string(),
     requestId: z.string(),
   }),
@@ -4977,6 +5007,8 @@ export const ProvidersSnapshotUpdateMessageSchema = z.object({
   payload: z.object({
     cwd: z.string().optional(),
     entries: z.array(ProviderSnapshotEntrySchema),
+    compactSnapshot: CompactProviderSnapshotSchema.optional(),
+    snapshotHash: z.string().optional(),
     generatedAt: z.string(),
   }),
 });
@@ -5948,6 +5980,7 @@ export const WSHelloMessageSchema = z.object({
       [CLIENT_CAPS.terminalReflowableSnapshot]: z.boolean().optional(),
       [CLIENT_CAPS.providerSubagents]: z.boolean().optional(),
       [CLIENT_CAPS.projectUpdates]: z.boolean().optional(),
+      [CLIENT_CAPS.compactProviderSnapshots]: z.boolean().optional(),
       [CLIENT_CAPS.browserHost]: BrowserAutomationHostCapabilitySchema.optional(),
     })
     .passthrough()

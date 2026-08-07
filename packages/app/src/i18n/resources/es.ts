@@ -81,9 +81,11 @@ export const es: TranslationResources = {
       desktop: "Envíe un mensaje al agente, etiquete@fileso use/commandsy/skills",
       mobile: "Mensaje,@files,/commands",
       fallback: "Mensaje...",
+      terminal: "Prompt",
     },
     input: {
       accessibilityLabel: "Agente de mensajes...",
+      terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}para enfocar",
       addAttachment: "Agregar archivo adjunto",
       interruptAgent: "agente de interrupción",
@@ -205,7 +207,7 @@ export const es: TranslationResources = {
     states: {
       notFound: "Agentno encontrado",
       failedToLoad: "No se pudo cargar el agente",
-      reconnecting: "Reconectando...",
+      reconnecting: "Reconectando",
       timelineSyncFailed: "No se pudo actualizar el historial del agente. Reintentando…",
       archivingTitle: "Agente de archivo...",
       archivingSubtitle: "Espere mientras archivamos este agente.",
@@ -949,9 +951,14 @@ export const es: TranslationResources = {
         host: "Host",
         changeRequest: "Pull request",
         checks: "Comprobaciones",
-        scripts: "Scripts",
+        services: "Servicios",
         diff: "Estadísticas de cambios",
         timestamp: "Última actividad",
+      },
+      checks: {
+        iconAndText: "Icono y texto",
+        icon: "Solo icono",
+        none: "Oculto",
       },
       hostFilter: {
         label: "Host",
@@ -1055,7 +1062,8 @@ export const es: TranslationResources = {
     },
     workspace: {
       status: {
-        scriptsAvailable: "Guiones disponibles",
+        serviceRunning: "Servicio {{name}} en ejecución",
+        serviceUnhealthy: "Servicio {{name}} con fallos",
         creating: "Creando...",
       },
       actions: {
@@ -1117,14 +1125,29 @@ export const es: TranslationResources = {
       composerStateRequired: "Se requiere el estado del compositor",
       selectModel: "Selecciona un modelo",
     },
+    tooltips: {
+      project: "Choose the project",
+      host: "Choose the host",
+      isolation: "Choose the isolation level",
+      startingRef: "Elige por dónde empezar",
+      launch: "Choose what to launch",
+    },
     refPicker: {
       startingRef: "Árbitro inicial",
-      chooseStart: "Elige por dónde empezar",
       intoBase: "en {{baseRef}}",
       searching: "Búsqueda...",
       noMatchingRefs: "No hay árbitros coincidentes.",
       searchPlaceholder: "Buscar sucursales y relaciones públicas",
       title: "Empezar desde",
+    },
+    launch: {
+      title: "What to launch",
+      chat: "Chat",
+      terminal: "Terminal",
+      manageProfiles: "Manage profiles",
+      submit: "Launch",
+      promptPlaceholder: "Prompt {{name}}",
+      commandPlaceholder: "Run a command, or leave empty for a blank terminal",
     },
   },
   desktop: {
@@ -1480,6 +1503,19 @@ export const es: TranslationResources = {
         show: "Mostrar avanzado",
         hide: "Ocultar avanzado",
       },
+      headers: {
+        title: "Encabezados personalizados",
+        add: "Añadir encabezado",
+        name: "Nombre",
+        value: "Valor",
+        remove: "Eliminar encabezado",
+        errors: {
+          missingName: "Introduce un nombre para cada encabezado",
+          invalidName: "{{name}} no es un nombre de encabezado válido",
+          invalidValue: "{{name}} contiene un salto de línea no válido",
+          duplicateName: "{{name}} se ha introducido más de una vez",
+        },
+      },
       passwordVisibility: {
         show: "Mostrar contraseña",
         hide: "Ocultar contraseña",
@@ -1831,6 +1867,7 @@ export const es: TranslationResources = {
           es: "Español",
           fr: "Français",
           ja: "日本語",
+          ko: "한국어",
           ptBR: "Português brasileiro",
           ru: "Русский",
           zhCN: "中文",

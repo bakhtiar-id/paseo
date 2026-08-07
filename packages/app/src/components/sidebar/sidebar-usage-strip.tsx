@@ -261,9 +261,9 @@ export function UsageSubtitle({ aggregate }: { aggregate: UsageAggregate }) {
 
 const foregroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-const inputColorMapping = (theme: Theme) => ({ color: theme.colors.statusMutedWarning });
-const outputColorMapping = (theme: Theme) => ({ color: theme.colors.statusMutedMerged });
-const cachedColorMapping = (theme: Theme) => ({ color: theme.colors.statusMutedSuccess });
+const inputColorMapping = (theme: Theme) => ({ color: theme.colors.statusWarning });
+const outputColorMapping = (theme: Theme) => ({ color: theme.colors.statusMerged });
+const cachedColorMapping = (theme: Theme) => ({ color: theme.colors.statusSuccess });
 
 const usageStyles = StyleSheet.create((theme) => ({
   usageRow: {
@@ -287,19 +287,19 @@ const usageStyles = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.medium,
   },
   inputText: {
-    color: theme.colors.statusMutedWarning,
+    color: theme.colors.statusWarning,
     fontSize: 9,
     lineHeight: 12,
     includeFontPadding: false,
   },
   outputText: {
-    color: theme.colors.statusMutedMerged,
+    color: theme.colors.statusMerged,
     fontSize: 9,
     lineHeight: 12,
     includeFontPadding: false,
   },
   cachedText: {
-    color: theme.colors.statusMutedSuccess,
+    color: theme.colors.statusSuccess,
     fontSize: 9,
     lineHeight: 12,
     includeFontPadding: false,

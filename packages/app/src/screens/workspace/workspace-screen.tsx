@@ -74,6 +74,7 @@ import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { useToast } from "@/contexts/toast-context";
 import { selectIsFileExplorerOpen, usePanelStore } from "@/stores/panel-store";
 import { type ExplorerCheckoutContext } from "@/stores/explorer-checkout-context";
+import { traceInstant } from "@/performance/native-trace";
 import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
 import {
   collectAllTabs,
@@ -192,6 +193,7 @@ import {
 } from "@/screens/workspace/terminals/use-workspace-terminals";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import {
+  resolveTerminalProfileLaunch,
   getTerminalProfileIcon,
   resolveTerminalProfiles,
 } from "@getpaseo/protocol/terminal-profiles";
@@ -938,6 +940,12 @@ export const WorkspaceScreen = memo(function WorkspaceScreen({
   recoveryAgentId,
 }: WorkspaceScreenProps) {
   const navigationFocused = useIsFocused();
+  useEffect(() => {
+    traceInstant("paseo.workspace.mount", { serverId, workspaceId });
+    return () => {
+      traceInstant("paseo.workspace.unmount", { serverId, workspaceId });
+    };
+  }, [serverId, workspaceId]);
   return (
     <WorkspaceScreenContent
       serverId={serverId}
@@ -1012,11 +1020,7 @@ function HeaderMenuProfileItem({
   onCreateTerminalWithProfile,
 }: HeaderMenuProfileItemProps) {
   const handleSelect = useCallback(() => {
-    onCreateTerminalWithProfile({
-      name: profile.name,
-      command: profile.command,
-      args: profile.args,
-    });
+    onCreateTerminalWithProfile(resolveTerminalProfileLaunch(profile, ""));
   }, [onCreateTerminalWithProfile, profile]);
 
   const icon = getTerminalProfileIcon(profile);

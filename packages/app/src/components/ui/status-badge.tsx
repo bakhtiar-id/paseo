@@ -51,13 +51,15 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[2],
     paddingVertical: 3,
   },
+  // Tinted from the one status token rather than a palette step, so the pill tracks the
+  // theme. `1a`/`33` are the 10%/20% alpha suffixes the identity table uses.
   pillSuccess: {
-    backgroundColor: theme.colors.palette.green[900],
-    borderColor: theme.colors.palette.green[800],
+    backgroundColor: `${theme.colors.statusSuccess}1a`,
+    borderColor: `${theme.colors.statusSuccess}33`,
   },
   pillError: {
-    backgroundColor: theme.colors.palette.red[900],
-    borderColor: theme.colors.palette.red[800],
+    backgroundColor: `${theme.colors.statusDanger}1a`,
+    borderColor: `${theme.colors.statusDanger}33`,
   },
   pillWarning: {
     // Tinted via hex-alpha on an existing palette value — same pattern as
@@ -75,10 +77,10 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
   },
   pillTextSuccess: {
-    color: theme.colors.palette.green[400],
+    color: theme.colors.statusSuccess,
   },
   pillTextError: {
-    color: theme.colors.palette.red[500],
+    color: theme.colors.statusDanger,
   },
   pillTextWarning: {
     color: theme.colors.palette.amber[500],
