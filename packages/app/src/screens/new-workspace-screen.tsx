@@ -2315,6 +2315,7 @@ export function NewWorkspaceScreen({
               blurOnSubmit={true}
               value={terminalComposerValue}
               onChangeText={setTerminalPromptText}
+              textReplacementKey={launchFocusKey}
               attachments={NO_TERMINAL_ATTACHMENTS}
               onChangeAttachments={noopChangeAttachments}
               cwd={selectedSourceDirectory ?? ""}
@@ -2338,7 +2339,8 @@ export function NewWorkspaceScreen({
               submitBehavior="preserve-and-lock"
               blurOnSubmit={true}
               value={chatDraft.text}
-              onChangeText={chatDraft.setText}
+              onChangeText={chatDraft.editText}
+              textReplacementKey={chatDraft.textReplacementKey}
               attachments={chatDraft.attachments}
               attachmentScopeKeys={visibleDraftContextScopeKeys}
               onChangeAttachments={chatDraft.setAttachments}

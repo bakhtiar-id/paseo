@@ -17,6 +17,7 @@ import {
   resolveEffectiveCollapsedProjectKeys,
   resolveLiveProjectKeys,
 } from "@/components/sidebar/sidebar-project-collapse";
+import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
 import { buildSidebarProjection } from "./sidebar-projection";
 
@@ -56,6 +57,7 @@ export function SidebarModelProvider({
   );
   const setProjectExpanded = useSidebarCollapsedSectionsStore((state) => state.setProjectExpanded);
   const pinnedCollapsed = useSidebarCollapsedSectionsStore((state) => state.collapsedPinned);
+  const pinnedWorkspaceOrder = useSidebarOrderStore((state) => state.pinnedWorkspaceOrder);
   const isStatusMode = groupMode === "status";
   const manualDoneKeys = useAgentDoneStore((state) => state.manuallyDoneAgentKeys);
   const workspaceEntriesByKey = useSidebarWorkspaceEntries(
@@ -105,6 +107,7 @@ export function SidebarModelProvider({
       buildSidebarProjection({
         projects: list.projects,
         pinnedKeys,
+        pinnedWorkspaceOrder,
         workspaceEntriesByKey: projectionWorkspaceEntriesByKey,
         projectNamesByViewKey: list.projectNamesByViewKey,
         groupMode,
@@ -121,6 +124,7 @@ export function SidebarModelProvider({
       list.projects,
       pinnedCollapsed,
       pinnedKeys,
+      pinnedWorkspaceOrder,
       projectionWorkspaceEntriesByKey,
       statusBucketLabels,
     ],

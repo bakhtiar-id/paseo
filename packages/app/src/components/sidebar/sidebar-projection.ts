@@ -28,6 +28,7 @@ export interface SidebarProjection {
 export function buildSidebarProjection(input: {
   projects: SidebarProjectEntry[];
   pinnedKeys: PinnedSidebarKeys;
+  pinnedWorkspaceOrder: string[];
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   projectNamesByViewKey: Map<string, string>;
   groupMode: SidebarGroupMode;
@@ -39,6 +40,7 @@ export function buildSidebarProjection(input: {
   const pinnedGroups = splitPinnedSidebarGroups({
     projects: input.projects,
     keys: input.pinnedKeys,
+    pinnedWorkspaceOrder: input.pinnedWorkspaceOrder,
   });
   const pinnedWorkspaceKeys = new Set(input.pinnedKeys.pinnedWorkspaceKeys);
   const statusGroups =

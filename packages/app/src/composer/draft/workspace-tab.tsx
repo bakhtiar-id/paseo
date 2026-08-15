@@ -390,7 +390,7 @@ export function WorkspaceDraftAgentTab({
   const draftOnSetFeature = composerState.agentControls.onSetFeature;
 
   const clearDraftInput = draftInput.clear;
-  const setDraftText = draftInput.setText;
+  const replaceDraftText = draftInput.replaceText;
   const setDraftAttachments = draftInput.setAttachments;
   const pendingAutoSubmit = useWorkspaceDraftSubmissionStore((state) => {
     const pending = state.pendingByDraftId[draftId] ?? null;
@@ -584,7 +584,7 @@ export function WorkspaceDraftAgentTab({
     }
     const submission = pendingAutoSubmit;
     autoSubmitKeyRef.current = submitKey;
-    setDraftText("");
+    replaceDraftText("");
     setDraftAttachments([]);
     const preparedAttempt =
       initialCreateAttempt?.clientMessageId === submission.clientMessageId
@@ -603,10 +603,8 @@ export function WorkspaceDraftAgentTab({
     void createPromise
       .finally(() => consumePendingAutoSubmit({ serverId, workspaceId, draftId }))
       .catch(() => {
-        setDraftText(submission.text);
-        setDraftAttachments(
-          composerWorkspaceAttachment.userAttachmentsOnly(submission.attachments),
-        );
+        replaceDraftText(submission.text);
+        setDraftAttachments(composerWorkspaceAttachment.userAttachmentsOnly(submission.attachments));
         autoSubmitKeyRef.current = null;
       });
   }, [
@@ -619,7 +617,7 @@ export function WorkspaceDraftAgentTab({
     pendingAutoSubmit,
     serverId,
     setDraftAttachments,
-    setDraftText,
+    replaceDraftText,
     workspaceId,
   ]);
 
@@ -701,7 +699,8 @@ export function WorkspaceDraftAgentTab({
           isSubmitLoading={isSubmitting}
           blurOnSubmit={true}
           value={draftInput.text}
-          onChangeText={draftInput.setText}
+          onChangeText={draftInput.editText}
+          textReplacementKey={draftInput.textReplacementKey}
           attachments={draftInput.attachments}
           attachmentScopeKeys={attachmentScopeKeys}
           onOpenWorkspaceAttachment={handleOpenWorkspaceAttachment}

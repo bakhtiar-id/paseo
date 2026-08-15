@@ -8,6 +8,7 @@ export interface SidebarProjectHostTarget {
   projectId: string;
   iconWorkingDir: string;
   customIconRevision?: string | null;
+  iconRevision?: string;
 }
 
 export interface SidebarProjectTerminalTarget {
@@ -35,6 +36,7 @@ function hostTarget(input: {
   projectId: string;
   iconWorkingDir: string;
   customIconRevision?: string | null;
+  iconRevision?: string;
 }): SidebarProjectHostTarget | null {
   const iconWorkingDir = input.iconWorkingDir.trim();
   if (!input.serverId || !iconWorkingDir) {
@@ -45,6 +47,7 @@ function hostTarget(input: {
     projectId: input.projectId,
     iconWorkingDir,
     customIconRevision: input.customIconRevision,
+    iconRevision: input.iconRevision,
   };
 }
 

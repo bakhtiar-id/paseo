@@ -1,4 +1,5 @@
 import type { TranslationResources } from "./en";
+import { pluginSettings } from "./plugin-settings";
 
 export const fr: TranslationResources = {
   common: {
@@ -66,6 +67,8 @@ export const fr: TranslationResources = {
       newAgent: "Nouvel agent",
       addProject: "Ajouter un projet",
       home: "Maison",
+      groupByProject: "Grouper par projet",
+      groupByStatus: "Grouper par statut",
       modelGroupLabel: "Modèle",
       modelSearchKeywords:
         "changer de modèle modifier le modèle définir le modèle sélectionner le modèle",
@@ -335,6 +338,15 @@ export const fr: TranslationResources = {
     todo: {
       title: "Tâches",
       empty: "Aucune tâche pour l'instant.",
+      tasksProgress: "{{completed}}/{{total}} tâches",
+      tasksProgressCurrent: "{{completed}}/{{total}} tâches · {{task}}",
+      activity: {
+        created: "{{count}} tâches créées",
+        added: "Ajoutée",
+        started: "Commencée",
+        completed: "Terminée",
+        reopened: "Rouverte",
+      },
     },
     compaction: {
       loading: "Compactage...",
@@ -516,6 +528,8 @@ export const fr: TranslationResources = {
         screenshotCopied: "Capture d'écran copiée dans le presse-papiers",
         elementCopied: "Élément copié dans le presse-papiers",
         screenshotFailed: "Impossible de copier la capture",
+        selectorLoading: "Attendez la fin du chargement de la page",
+        selectorFailed: "Impossible de démarrer le sélecteur d’élément",
       },
       annotate: {
         title: "Annoter l'élément",
@@ -608,6 +622,7 @@ export const fr: TranslationResources = {
         reloadingAgent: "Agent de rechargement...",
         reloadedAgent: "Agent rechargé",
         failedToReloadAgent: "Échec du rechargement de l'agent",
+        failedToCloseAgent: "Échec de la fermeture de l'agent",
       },
       confirmations: {
         unsavedTitle: "Modifications non enregistrées",
@@ -1066,6 +1081,7 @@ export const fr: TranslationResources = {
         showDone: "Afficher {{count}} terminés",
         hideDone: "Masquer les terminés",
         markAllDone: "Tout marquer comme terminé",
+        archiveAllWorkspaces: "Archiver tous les espaces de travail",
         openSettings: "Ouvrir les paramètres du projet",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
@@ -1479,14 +1495,18 @@ export const fr: TranslationResources = {
     loadingSelector: "Chargement du sélecteur de modèle...",
     error: "Erreur",
     defaultModel: "Défaut",
-    favorites: "Favoris",
-    favoriteModel: "Modèle préféré",
-    unfavoriteModel: "Modèle défavorisé",
+    profiles: "Profils",
+    providers: "Fournisseurs",
+    editProfiles: "Modifier",
+    editProfilesLabel: "Modifier les profils d'agent",
+    createProfile: "Créer un profil",
     modelCount: "{{count}} modèle",
     modelCountPlural: "{{count}} modèles",
     retry: "Réessayer",
     retrying: "Nouvelle tentative...",
     noMatches: "Aucun modèle ne correspond à votre recherche",
+    noMatchesForQuery: "Aucun modèle ne correspond à « {{query}} »",
+    searchAllPlaceholder: "Rechercher dans tous les modèles...",
     searchPlaceholder: "Rechercher des modèles...",
     openProviderSettings: "Ouvrir les paramètres{{provider}}",
   },
@@ -1686,6 +1706,7 @@ export const fr: TranslationResources = {
     archiveTooltip: "Sous-agent d'archivage",
     archiveFinishedAction: "Archiver les sous-agents terminés",
     archiveFinishedTooltip: "Archiver les terminés",
+    archiveFinishedRetry: "Réessayer ({{failed}}/{{total}})",
   },
   panels: {
     draft: {
@@ -1854,8 +1875,10 @@ export const fr: TranslationResources = {
       providers: "Fournisseurs",
       usage: "Utilisation",
       terminals: "Terminals",
+      plugins: "Plugins",
       host: "Aperçu",
     },
+    plugins: pluginSettings.fr,
     metadataGeneration: {
       title: "Génération de métadonnées",
       description:
@@ -2282,6 +2305,46 @@ export const fr: TranslationResources = {
         save: "Save",
         emptyState: "No profiles yet. Add one to launch terminals with a specific command.",
       },
+      agentProfiles: {
+        sectionTitle: "Profils d'agent",
+        unavailable: "Connectez-vous à cet hôte pour gérer les profils d'agent",
+        unsupported:
+          "Cet hôte exécute un daemon qui ne prend pas encore en charge les profils d'agent",
+        emptyState:
+          "Aucun profil pour le moment. Ajoutez-en un pour démarrer des agents à partir d'un fournisseur et d'un modèle enregistrés.",
+        addProfileTitle: "Ajouter un profil d'agent",
+        newProfile: "Nouveau profil",
+        editProfile: "Modifier le profil",
+        editProfileTitle: "Modifier le profil d'agent",
+        nameLabel: "Nom",
+        namePlaceholder: "Travail sur l'UI",
+        iconLabel: "Icône",
+        noIcon: "Aucune",
+        providerLabel: "Fournisseur",
+        providerPlaceholder: "Sélectionner un fournisseur",
+        noProviders: "Aucun fournisseur n'est disponible sur cet hôte",
+        modelLabel: "Modèle",
+        noModels: "Ce fournisseur n'a aucun modèle à choisir",
+        modeLabel: "Mode",
+        noModes: "Ce fournisseur n'a aucun mode à choisir",
+        thinkingLabel: "Pensée",
+        noThinkingOptions: "Ce modèle n'a aucun niveau de pensée",
+        featuresLabel: "Caractéristiques",
+        featureCount: "{{count}} caractéristiques",
+        featureCountOne: "{{count}} caractéristique",
+        notesLabel: "Notes pour les agents",
+        notesPlaceholder:
+          "À utiliser pour le travail sur l'UI — composants, mise en page et tokens de design.",
+        notesHint:
+          "Renvoyé par l'outil MCP « list_profiles ». Rédigez-le comme une instruction destinée à un autre agent.",
+        save: "Enregistrer",
+        saving: "Enregistrement...",
+        remove: "Supprimer",
+        removeConfirmTitle: "Supprimer le profil ?",
+        removeConfirmMessage: "Supprimer « {{name}} » ?",
+        moveUp: "Déplacer vers le haut",
+        moveDown: "Déplacer vers le bas",
+      },
       daemon: {
         rename: {
           editLabel: "Modifier l'étiquette",
@@ -2450,6 +2513,9 @@ export const fr: TranslationResources = {
           "Voir la documentation pour plus de détails et les variables d'environnement disponibles pour ces commandes",
         setup: "Installation",
         setupAccessibility: "Commandes de configuration de Worktree",
+        uncommittedTitle: "Validez les modifications de paseo.json",
+        uncommittedDescription:
+          "Les nouveaux worktrees utilisent le script de configuration de la branche de base sélectionnée.",
         teardown: "Démolir",
         teardownAccessibility: "Commandes de démontage de Worktree",
       },

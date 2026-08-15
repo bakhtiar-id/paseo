@@ -23,6 +23,18 @@ paseo logs <id>                      # View agent timeline
 paseo stop <id>                      # Stop an agent
 ```
 
+## Provider diagnostics
+
+Ask the daemon to inspect the provider environment it actually uses:
+
+```bash
+paseo provider diagnostic claude
+paseo provider diagnostic codex --json
+paseo provider diagnostic opencode --host devbox:6767
+```
+
+The diagnostic includes the configured command, daemon `PATH` and shell, matching binaries, resolved path, version, model count, and provider status. Use `--host` for a remote daemon. This is the same diagnostic shown under **Settings → your host → Providers → provider → Diagnostic**.
+
 ## Running agents
 
 Use `paseo run` to start a new agent with a task:
@@ -76,11 +88,13 @@ paseo workspace create \
   --pr-number 2186
 ```
 
-Then list, use, or archive it:
+Then list, use, rename, or archive it:
 
 ```bash
 paseo workspace ls
 paseo run --workspace <workspace-id> "implement authentication"
+paseo workspace rename <workspace-id> "Auth rework"
+paseo workspace rename <workspace-id> --reset   # back to the branch or directory name
 paseo workspace archive <workspace-id>
 ```
 
@@ -188,8 +202,12 @@ Detaching is an explicit lifecycle action, not a creation flag. The agent keeps 
 paseo daemon start             # Start the daemon
 paseo daemon start --web-ui    # Start and serve the bundled web UI
 paseo daemon status            # Check status
+paseo reload                    # Reload config.json (top-level alias)
+paseo daemon reload             # Reload config.json
 paseo daemon stop              # Stop the daemon
 ```
+
+Reload validates the whole file, applies runtime-safe changes, and reports `appliedPaths`, `restartRequiredPaths`, and `overrideControlledPaths`. Human output prints `paseo daemon restart` only when a changed setting needs it. Use `--json` or `--format yaml` for the structured result, and `--host` to reload a remote daemon's own configuration file. An older host that does not support reload returns an update-host error.
 
 Use `PASEO_HOME` to run multiple isolated daemon instances.
 
