@@ -968,6 +968,7 @@ export const zhCN: TranslationResources = {
     updateAvailable: "有可用更新",
     limitsUnavailable: "限额不可用",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "标签",
     unlabelled: "无标签",

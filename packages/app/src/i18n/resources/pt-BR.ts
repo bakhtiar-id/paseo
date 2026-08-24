@@ -998,6 +998,7 @@ export const ptBR: TranslationResources = {
     updateAvailable: "Atualização disponível",
     limitsUnavailable: "Limites indisponíveis",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "Etiquetas",
     unlabelled: "Sem etiqueta",

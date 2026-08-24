@@ -1006,6 +1006,7 @@ export const fr: TranslationResources = {
     updateAvailable: "Mise à jour disponible",
     limitsUnavailable: "Limites indisponibles",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "Étiquettes",
     unlabelled: "Sans étiquette",

@@ -1007,6 +1007,7 @@ export const es: TranslationResources = {
     updateAvailable: "Actualización disponible",
     limitsUnavailable: "Límites no disponibles",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "Etiquetas",
     unlabelled: "Sin etiqueta",

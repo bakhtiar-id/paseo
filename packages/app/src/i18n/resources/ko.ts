@@ -983,6 +983,7 @@ export const ko: TranslationResources = {
     updateAvailable: "업데이트 사용 가능",
     limitsUnavailable: "한도 사용 불가",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "레이블",
     unlabelled: "레이블 없음",

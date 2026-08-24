@@ -985,6 +985,7 @@ export const en = {
     updateAvailable: "Update available",
     limitsUnavailable: "Limits unavailable",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "Labels",
     unlabelled: "Unlabelled",

@@ -987,6 +987,7 @@ export const ja: TranslationResources = {
     updateAvailable: "アップデートがあります",
     limitsUnavailable: "利用制限を取得できません",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "ラベル",
     unlabelled: "ラベルなし",

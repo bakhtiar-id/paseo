@@ -976,6 +976,7 @@ export const ar: TranslationResources = {
     updateAvailable: "يتوفر تحديث",
     limitsUnavailable: "الحدود غير متاحة",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "التسميات",
     unlabelled: "بلا تسمية",

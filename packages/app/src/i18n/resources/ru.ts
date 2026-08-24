@@ -991,6 +991,7 @@ export const ru: TranslationResources = {
     updateAvailable: "Доступно обновление",
     limitsUnavailable: "Лимиты недоступны",
     moreProviders: "+{{count}}",
+  },
   workspaceLabels: {
     title: "Метки",
     unlabelled: "Без метки",
