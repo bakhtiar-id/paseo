@@ -16,7 +16,8 @@ export type { PrepareWorkspaceTabInput } from "./prepare-workspace-tab";
 function layoutStoreDeps() {
   const store = useWorkspaceLayoutStore.getState();
   return {
-    openTabFocused: store.openTabFocused,
+    openTab: (input: { workspaceKey: string; target: WorkspaceTabTarget; intent: "reveal" }) =>
+      store.openTab(input),
     pinAgent: store.pinAgent,
     preparePaneForTarget,
   };
@@ -51,9 +52,10 @@ export function prepareWorkspaceTerminalPane(input: {
   const workspaceKey = buildWorkspaceTabPersistenceKey(input);
   if (!workspaceKey) return;
   const store = useWorkspaceLayoutStore.getState();
-  const tabId = store.openTabFocused(workspaceKey, {
-    kind: "terminal",
-    terminalId: input.terminalId,
+  const tabId = store.openTab({
+    workspaceKey,
+    target: { kind: "terminal", terminalId: input.terminalId },
+    intent: "reveal",
   });
   if (!tabId) return;
   const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];

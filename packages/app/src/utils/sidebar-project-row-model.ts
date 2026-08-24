@@ -2,6 +2,7 @@ import type {
   SidebarProjectEntry,
   SidebarWorkspaceEntry,
 } from "@/hooks/use-sidebar-workspaces-list";
+import { createProjectIconTarget, type ProjectIconTarget } from "@/projects/icon-target";
 
 export interface SidebarProjectHostTarget {
   serverId: string;
@@ -63,16 +64,17 @@ export function resolveSidebarProjectIconTarget(
   return null;
 }
 
-export interface SidebarProjectIconTarget extends SidebarProjectHostTarget {
-  projectViewKey: string;
-}
+export type SidebarProjectIconTarget = ProjectIconTarget;
 
 export function resolveSidebarProjectIconTargets(
   projects: readonly SidebarProjectEntry[],
 ): SidebarProjectIconTarget[] {
   return projects.flatMap((project) => {
     const target = resolveSidebarProjectIconTarget(project);
-    return target ? [{ projectViewKey: project.viewKey, ...target }] : [];
+    const iconTarget = target
+      ? createProjectIconTarget({ projectViewKey: project.viewKey, placement: target })
+      : null;
+    return iconTarget ? [iconTarget] : [];
   });
 }
 

@@ -1,16 +1,11 @@
+import { STATUS_BUCKET_ORDER } from "@/utils/sidebar-agent-state";
 import type { SidebarWorkspaceEntry } from "@/hooks/sidebar-workspaces-view-model";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 export type StatusBucket = SidebarWorkspaceEntry["statusBucket"];
 
-export const STATUS_BUCKET_ORDER: readonly StatusBucket[] = [
-  "needs_input",
-  "failed",
-  "attention",
-  "running",
-  "done",
-] as const;
+export { STATUS_BUCKET_ORDER };
 
 // Default labels — the i18n hook below overrides them with translated strings.
 export const STATUS_BUCKET_LABELS: Record<StatusBucket, string> = {

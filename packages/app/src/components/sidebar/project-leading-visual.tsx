@@ -186,6 +186,8 @@ function getStatusBadgeBackdropStyle(backdrop: SurfaceBackdrop): ViewStyle {
   switch (backdrop) {
     case "surfaceSidebarHover":
       return styles.statusBadgeOnSidebarHover;
+    case "surfaceSidebarSelected":
+      return styles.statusBadgeOnSidebarSelected;
     case "surface2":
       return styles.statusBadgeOnSurface2;
     default:
@@ -284,6 +286,7 @@ const styles = StyleSheet.create((theme) => {
     },
     statusBadgeOnSidebar: { backgroundColor: theme.colors.surfaceSidebar },
     statusBadgeOnSidebarHover: { backgroundColor: theme.colors.surfaceSidebarHover },
+    statusBadgeOnSidebarSelected: { backgroundColor: theme.colors.surfaceSidebarSelected },
     statusBadgeOnSurface2: { backgroundColor: theme.colors.surface2 },
     statusDotRunning: statusDot("running"),
     statusDotFailed: statusDot("failed"),

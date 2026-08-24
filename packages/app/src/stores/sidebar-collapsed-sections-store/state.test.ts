@@ -7,13 +7,13 @@ import {
   setProjectExpanded,
   togglePinnedCollapsed,
   toggleProjectCollapsed,
-  toggleStatusGroupCollapsed,
+  toggleWorkspaceGroupCollapsed,
 } from "@/stores/sidebar-collapsed-sections-store/state";
 
 function emptyState(): CollapsedProjectsState {
   return {
     collapsedProjectKeys: new Set(),
-    collapsedStatusGroupKeys: new Set(),
+    collapsedWorkspaceGroupKeys: new Set(),
     collapsedPinned: false,
     expandedProjectKeys: new Set(),
   };
@@ -26,10 +26,10 @@ describe("sidebar collapsed projects transitions", () => {
     state = setProjectCollapsed(state, "project-a", true);
     state = toggleProjectCollapsed(state, "project-b");
     state = toggleProjectCollapsed(state, "project-a");
-    state = toggleStatusGroupCollapsed(state, "running");
+    state = toggleWorkspaceGroupCollapsed(state, "running");
 
     expect(Array.from(state.collapsedProjectKeys)).toEqual(["project-b"]);
-    expect(Array.from(state.collapsedStatusGroupKeys)).toEqual(["running"]);
+    expect(Array.from(state.collapsedWorkspaceGroupKeys)).toEqual(["running"]);
   });
 
   it("tracks explicitly expanded idle project keys", () => {
@@ -45,14 +45,14 @@ describe("sidebar collapsed projects transitions", () => {
   it("serializes collapsed project keys for preference storage", () => {
     const state: CollapsedProjectsState = {
       collapsedProjectKeys: new Set(["project-a", "project-b"]),
-      collapsedStatusGroupKeys: new Set(["running"]),
+      collapsedWorkspaceGroupKeys: new Set(["running"]),
       collapsedPinned: true,
       expandedProjectKeys: new Set(["project-idle"]),
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
       collapsedProjectKeys: ["project-a", "project-b"],
-      collapsedStatusGroupKeys: ["running"],
+      collapsedWorkspaceGroupKeys: ["running"],
       collapsedPinned: true,
       expandedProjectKeys: ["project-idle"],
     });
@@ -73,7 +73,7 @@ describe("sidebar collapsed projects transitions", () => {
     );
 
     expect(Array.from(restored.collapsedProjectKeys)).toEqual([]);
-    expect(Array.from(restored.collapsedStatusGroupKeys)).toEqual([]);
+    expect(Array.from(restored.collapsedWorkspaceGroupKeys)).toEqual([]);
   });
 
   it("keeps the existing state object when persisted preferences do not change collapsed keys", () => {

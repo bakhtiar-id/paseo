@@ -42,7 +42,13 @@ function createFakeLayout() {
     preparePaneForTarget: (key: string, target: WorkspaceTabTarget) => {
       preparedTargets.push({ key, target });
     },
-    openTabFocused: (key: string, target: WorkspaceTabTarget) => {
+    openTab: ({
+      workspaceKey: key,
+      target,
+    }: {
+      workspaceKey: string;
+      target: WorkspaceTabTarget;
+    }) => {
       openedTabs.push({ key, target });
       return target.kind === "agent" ? target.agentId : null;
     },
@@ -83,7 +89,11 @@ describe("prepareWorkspaceTab", () => {
       terminalId: "terminal-1",
     });
     preparePaneForTarget(workspaceKey, { kind: "agent", agentId: AGENT_ID });
-    store.openTabFocused(workspaceKey, { kind: "agent", agentId: AGENT_ID });
+    store.openTab({
+      workspaceKey,
+      target: { kind: "agent", agentId: AGENT_ID },
+      intent: "reveal",
+    });
 
     const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
     const tabs = collectAllTabs(layout.root);

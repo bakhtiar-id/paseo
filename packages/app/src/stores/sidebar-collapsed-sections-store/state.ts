@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export interface CollapsedProjectsState {
   collapsedProjectKeys: Set<string>;
-  collapsedStatusGroupKeys: Set<string>;
+  collapsedWorkspaceGroupKeys: Set<string>;
   collapsedPinned: boolean;
   /** Projects the user explicitly expanded while they would default to collapsed. */
   expandedProjectKeys: Set<string>;
@@ -10,6 +10,7 @@ export interface CollapsedProjectsState {
 
 export interface PersistedCollapsedProjects {
   collapsedProjectKeys?: string[];
+  collapsedWorkspaceGroupKeys?: string[];
   collapsedStatusGroupKeys?: string[];
   collapsedPinned?: boolean;
   expandedProjectKeys?: string[];
@@ -18,6 +19,8 @@ export interface PersistedCollapsedProjects {
 export const PersistedCollapsedProjectsSchema: z.ZodType<PersistedCollapsedProjects> =
   z.strictObject({
     collapsedProjectKeys: z.array(z.string()).optional(),
+    collapsedWorkspaceGroupKeys: z.array(z.string()).optional(),
+    // COMPAT(sidebarWorkspaceGroupCollapse): added in v0.4.0, remove after 2027-02-14.
     collapsedStatusGroupKeys: z.array(z.string()).optional(),
     collapsedPinned: z.boolean().optional(),
     expandedProjectKeys: z.array(z.string()).optional(),
@@ -40,17 +43,17 @@ export function toggleProjectCollapsed(
   return { ...state, collapsedProjectKeys: next };
 }
 
-export function toggleStatusGroupCollapsed(
+export function toggleWorkspaceGroupCollapsed(
   state: CollapsedProjectsState,
-  statusGroupKey: string,
+  workspaceGroupKey: string,
 ): CollapsedProjectsState {
-  const next = new Set(state.collapsedStatusGroupKeys);
-  if (next.has(statusGroupKey)) {
-    next.delete(statusGroupKey);
+  const next = new Set(state.collapsedWorkspaceGroupKeys);
+  if (next.has(workspaceGroupKey)) {
+    next.delete(workspaceGroupKey);
   } else {
-    next.add(statusGroupKey);
+    next.add(workspaceGroupKey);
   }
-  return { ...state, collapsedStatusGroupKeys: next };
+  return { ...state, collapsedWorkspaceGroupKeys: next };
 }
 
 export function setProjectCollapsed(
@@ -83,13 +86,13 @@ export function setProjectExpanded(
 
 export function serializeCollapsedProjects(state: CollapsedProjectsState): {
   collapsedProjectKeys: string[];
-  collapsedStatusGroupKeys: string[];
+  collapsedWorkspaceGroupKeys: string[];
   collapsedPinned: boolean;
   expandedProjectKeys: string[];
 } {
   return {
     collapsedProjectKeys: Array.from(state.collapsedProjectKeys),
-    collapsedStatusGroupKeys: Array.from(state.collapsedStatusGroupKeys),
+    collapsedWorkspaceGroupKeys: Array.from(state.collapsedWorkspaceGroupKeys),
     collapsedPinned: state.collapsedPinned,
     expandedProjectKeys: Array.from(state.expandedProjectKeys),
   };
@@ -107,8 +110,10 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
   const restoredProjects = deserializeCollapsedKeys(
     persisted.collapsedProjectKeys ?? Array.from(current.collapsedProjectKeys),
   );
-  const restoredStatusGroups = deserializeCollapsedKeys(
-    persisted.collapsedStatusGroupKeys ?? Array.from(current.collapsedStatusGroupKeys),
+  const restoredWorkspaceGroups = deserializeCollapsedKeys(
+    persisted.collapsedWorkspaceGroupKeys ??
+      persisted.collapsedStatusGroupKeys ??
+      Array.from(current.collapsedWorkspaceGroupKeys),
   );
   const restoredExpandedProjects = deserializeCollapsedKeys(
     persisted.expandedProjectKeys ?? Array.from(current.expandedProjectKeys),
@@ -116,7 +121,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
   const restoredPinned = persisted.collapsedPinned ?? current.collapsedPinned;
   if (
     areSetsEqual(current.collapsedProjectKeys, restoredProjects) &&
-    areSetsEqual(current.collapsedStatusGroupKeys, restoredStatusGroups) &&
+    areSetsEqual(current.collapsedWorkspaceGroupKeys, restoredWorkspaceGroups) &&
     areSetsEqual(current.expandedProjectKeys, restoredExpandedProjects) &&
     current.collapsedPinned === restoredPinned
   ) {
@@ -125,7 +130,7 @@ export function mergePersistedCollapsedProjects<S extends CollapsedProjectsState
   return {
     ...current,
     collapsedProjectKeys: restoredProjects,
-    collapsedStatusGroupKeys: restoredStatusGroups,
+    collapsedWorkspaceGroupKeys: restoredWorkspaceGroups,
     collapsedPinned: restoredPinned,
     expandedProjectKeys: restoredExpandedProjects,
   };

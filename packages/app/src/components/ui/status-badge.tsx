@@ -1,16 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { View, Text, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-type StatusBadgeVariant = "success" | "error" | "warning" | "info" | "muted";
+export type StatusBadgeVariant = "success" | "error" | "warning" | "info" | "muted";
 
 interface StatusBadgeProps {
   label: string;
   variant?: StatusBadgeVariant;
   style?: StyleProp<ViewStyle>;
+  leading?: ReactNode;
 }
 
-export function StatusBadge({ label, variant = "muted", style }: StatusBadgeProps) {
+export function StatusBadge({ label, variant = "muted", style, leading }: StatusBadgeProps) {
   const pillStyle = useMemo(
     () => [
       styles.pill,
@@ -35,6 +36,7 @@ export function StatusBadge({ label, variant = "muted", style }: StatusBadgeProp
 
   return (
     <View style={pillStyle}>
+      {leading}
       <Text style={textStyle}>{label}</Text>
     </View>
   );
@@ -44,6 +46,7 @@ const styles = StyleSheet.create((theme) => ({
   pill: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -51,8 +54,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[2],
     paddingVertical: 3,
   },
-  // Tinted from the one status token rather than a palette step, so the pill tracks the
-  // theme. `1a`/`33` are the 10%/20% alpha suffixes the identity table uses.
   pillSuccess: {
     backgroundColor: `${theme.colors.statusSuccess}1a`,
     borderColor: `${theme.colors.statusSuccess}33`,
@@ -62,8 +63,6 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: `${theme.colors.statusDanger}33`,
   },
   pillWarning: {
-    // Tinted via hex-alpha on an existing palette value — same pattern as
-    // ${surface0}cc — no new tokens.
     backgroundColor: `${theme.colors.palette.amber[500]}26`,
     borderColor: theme.colors.palette.amber[700],
   },
@@ -72,7 +71,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.palette.blue[800],
   },
   pillText: {
-    fontSize: theme.fontSize.xs,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.normal,
     color: theme.colors.foregroundMuted,
   },

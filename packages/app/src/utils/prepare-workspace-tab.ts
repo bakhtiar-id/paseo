@@ -9,7 +9,11 @@ export interface PrepareWorkspaceTabInput {
 }
 
 export interface PrepareWorkspaceTabDeps {
-  openTabFocused: (workspaceKey: string, target: WorkspaceTabTarget) => string | null;
+  openTab: (input: {
+    workspaceKey: string;
+    target: WorkspaceTabTarget;
+    intent: "reveal";
+  }) => string | null;
   pinAgent: (workspaceKey: string, agentId: string) => void;
   preparePaneForTarget?: (workspaceKey: string, target: WorkspaceTabTarget) => void;
 }
@@ -33,7 +37,7 @@ export function prepareWorkspaceTab(
     }) ?? "";
 
   deps.preparePaneForTarget?.(key, target);
-  deps.openTabFocused(key, target);
+  deps.openTab({ workspaceKey: key, target, intent: "reveal" });
 
   if (input.pin && target.kind === "agent") {
     deps.pinAgent(key, target.agentId);
