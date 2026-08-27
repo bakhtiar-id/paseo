@@ -44,7 +44,12 @@ export function resolveUpdateCalloutDescriptor(
   input: ResolveUpdateCalloutInput,
 ): UpdateCalloutDescriptor | null {
   if (!input.isDesktopApp) return null;
-  if (input.status !== "available" && input.status !== "installing" && input.status !== "error") {
+  if (
+    input.status !== "pending" &&
+    input.status !== "available" &&
+    input.status !== "installing" &&
+    input.status !== "error"
+  ) {
     return null;
   }
 

@@ -100,7 +100,8 @@ class ElectronAppUpdateRuntime implements AppUpdateRuntime {
   private configured = false;
 
   configure(input: AppUpdateRuntimeConfiguration): void {
-    autoUpdater.autoDownload = true;
+    // Updates are downloaded and installed only after an explicit user action.
+    autoUpdater.autoDownload = false;
     autoUpdater.autoRunAppAfterInstall = true;
     // Paseo revalidates the current manifest before explicitly installing on quit.
     // Electron's built-in handler would install an older download without checking
@@ -137,9 +138,6 @@ class ElectronAppUpdateRuntime implements AppUpdateRuntime {
     });
     autoUpdater.on("update-downloaded", (info) => {
       input.onUpdateDownloaded(info as RuntimeUpdateInfo);
-    });
-    autoUpdater.on("update-not-available", () => {
-      input.onUpdateNotAvailable();
     });
     autoUpdater.on("error", (error) => {
       if (isUpdateChannelNotPublished(error)) return;
