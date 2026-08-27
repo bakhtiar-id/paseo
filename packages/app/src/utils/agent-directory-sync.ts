@@ -1,4 +1,5 @@
 import equal from "fast-deep-equal";
+import equal from "fast-deep-equal";
 import type { FetchAgentsEntry } from "@getpaseo/client/internal/daemon-client";
 import { type Agent, useSessionStore } from "@/stores/session-store";
 import { derivePendingPermissionKey, normalizeAgentSnapshot } from "@/utils/agent-snapshots";
@@ -191,9 +192,9 @@ export function replaceFetchedAgentDirectory(input: {
   // A full directory replacement must not evict previously-retained archived
   // agents (see removeAgentDirectoryReplica): their usage still belongs in the
   // sidebar aggregates until their project is gone.
-  const currentAgents = store.sessions[input.serverId]?.agents;
-  if (currentAgents) {
-    for (const [agentId, agent] of currentAgents) {
+  const retainedAgents = store.sessions[input.serverId]?.agents;
+  if (retainedAgents) {
+    for (const [agentId, agent] of retainedAgents) {
       if (agent.archivedAt && !fetchedAgents.has(agentId)) {
         fetchedAgents.set(agentId, agent);
       }
